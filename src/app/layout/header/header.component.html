@@ -6,16 +6,21 @@
 
   <!-- Center Menu Buttons -->
   <div class="menu-buttons flex-auto flex justify-content-center gap-2">
-    <button pButton label="Dashboard"        (click)="openPanel('dashboard')"        class="p-button-sm"></button>
-    <button pButton label="Layer Switcher"   (click)="openPanel('layer-switcher')"   class="p-button-sm"></button>
-    <button pButton label="Attribute Table"  (click)="openPanel('attribute-table')"  class="p-button-sm"></button>
-    <button pButton label="Query Module"     (click)="openPanel('query-module')"     class="p-button-sm"></button>
-    <button pButton label="Geoserver"        (click)="openPanel('geoserver')"        class="p-button-sm"></button>
+    <button pButton label="Dashboard" (click)="openPanel('dashboard')" class="p-button-sm"></button>
+    <button pButton label="Layer Switcher" (click)="openPanel('layer-switcher')" class="p-button-sm"></button>
+    <button pButton label="Attribute Table" (click)="openPanel('attribute-table')" class="p-button-sm"></button>
+    <button pButton label="Query Module" (click)="openPanel('query-module')" class="p-button-sm"></button>
+    <button pButton label="Geoserver" (click)="openPanel('geoserver')" class="p-button-sm"></button>
   </div>
 
   <!-- Right Side Search and Profile -->
   <div class="search-profile flex-none md:w-12rem flex justify-content-end align-items-center gap-2">
     <input pInputText type="text" placeholder="Search..." class="p-inputtext-sm w-10rem hidden md:inline-flex" />
-    <button pButton icon="pi pi-user" class="p-button-sm p-button-rounded p-button-text"></button>
+    <button pButton icon="pi pi-user" style="color: white;" (click)="openUserPanel()"></button>
   </div>
+
+  <p-drawer header="Profile" [(visible)]="isUserPanelVisible" position="right" [modal]="true"
+    (onHide)="closeUserPanel()">
+    <app-profile></app-profile>
+  </p-drawer>
 </header>
