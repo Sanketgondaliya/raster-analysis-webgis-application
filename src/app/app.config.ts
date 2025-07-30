@@ -6,11 +6,13 @@ import { provideRouter, withHashLocation } from '@angular/router'; // <-- import
 import Aura from '@primeuix/themes/aura';
 
 import { routes } from './app.routes';  // Ensure your app.routes.ts exports the routes array
+import { provideHttpClient } from '@angular/common/http';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes, withHashLocation()),  // <-- Enable hash-based routing
     provideAnimationsAsync(),
+    provideHttpClient(),
     providePrimeNG({
       theme: {
         preset: Aura,
