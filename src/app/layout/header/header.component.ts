@@ -4,10 +4,11 @@ import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DrawerModule } from 'primeng/drawer';
+import { ProfileComponent } from '../../components/profile/profile.component';
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [ButtonModule, InputTextModule, DrawerModule],
+  imports: [ButtonModule, InputTextModule, DrawerModule,ProfileComponent],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.scss']
 })
