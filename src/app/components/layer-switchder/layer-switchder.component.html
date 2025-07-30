@@ -10,12 +10,8 @@
       <p-accordion [multiple]="true">
         <p-accordion-panel *ngFor="let item of tab.items" [value]="item.id">
           <p-accordion-header>
-            <p-checkbox
-              [binary]="true"
-              [(ngModel)]="item.checked"
-              (onChange)="onItemClick(item)"
-              inputId="{{ item.id }}"
-            ></p-checkbox>
+            <p-checkbox [binary]="true" [(ngModel)]="item.checked" (onChange)="onItemClick(item)"
+              (click)="$event.stopPropagation()" inputId="{{ item.id }}"></p-checkbox>
             <label for="{{ item.id }}" class="ml-2">{{ item.name }}</label>
           </p-accordion-header>
 

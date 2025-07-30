@@ -19,8 +19,7 @@
     <button pButton icon="pi pi-user" style="color: white;" (click)="openUserPanel()"></button>
   </div>
 
-  <p-drawer header="Profile" [(visible)]="isUserPanelVisible" position="right" [modal]="true"
-    (onHide)="closeUserPanel()">
+  <p-drawer header="Profile" [(visible)]="isUserPanelVisible" position="right" [modal]="true">
     <app-profile></app-profile>
   </p-drawer>
 </header>

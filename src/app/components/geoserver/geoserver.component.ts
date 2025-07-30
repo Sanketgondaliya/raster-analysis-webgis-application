@@ -22,7 +22,7 @@ export class GeoserverComponent {
     { label: 'Workspace', value: 0 },
     { label: 'Datastore', value: 1 },
     { label: 'Upload Layer', value: 2 },
-    { label: 'Style', value: 3 }
+    // { label: 'Style', value: 3 }
   ];
 
   onTabChange(index: number | string): void {
