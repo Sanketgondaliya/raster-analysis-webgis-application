@@ -6,8 +6,105 @@
   </p-tablist>
 
   <p-tabpanels>
+    <p-tabpanel *ngIf="value === 1">
+      <form [formGroup]="datastoreForm" (ngSubmit)="onDatastoreSubmit()" class="p-fluid">
+        <div class="grid mx-0">
+          <div class="col-12">
+            <div class="field">
+              <label for="department">Department Name</label>
+              <input pInputText id="department" formControlName="department" />
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="field">
+              <label for="host">Database Host</label>
+              <input pInputText id="host" formControlName="host" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="port">Port</label>
+            <input pInputText id="port" formControlName="port" />
+          </div>
+
+          <div class="field">
+            <label for="dbname">Database Name</label>
+            <input pInputText id="dbname" formControlName="dbname" />
+          </div>
+
+          <div class="field">
+            <label for="username">Username</label>
+            <input pInputText id="username" formControlName="username" />
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <input pPassword id="password" formControlName="password" toggleMask />
+          </div>
+
+          <div class="field mt-3">
+            <button pButton type="submit" label="Submit" class="p-button-success"></button>
+          </div>
+        </div>
+      </form>
+    </p-tabpanel>
+
     <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value">
-      <p>{{ tab.label }} content goes here</p>
+      <!-- <p>{{ tab.label }}</p> -->
+      <ng-container *ngIf="value === 1">
+        <form [formGroup]="datastoreForm" (ngSubmit)="onDatastoreSubmit()" class="p-fluid">
+          <div class="field">
+            <label for="department">Department Name</label>
+            <input pInputText id="department" formControlName="department" />
+          </div>
+
+          <div class="field">
+            <label for="host">Database Host</label>
+            <input pInputText id="host" formControlName="host" />
+          </div>
+
+          <div class="field">
+            <label for="port">Port</label>
+            <input pInputText id="port" formControlName="port" />
+          </div>
+
+          <div class="field">
+            <label for="dbname">Database Name</label>
+            <input pInputText id="dbname" formControlName="dbname" />
+          </div>
+
+          <div class="field">
+            <label for="username">Username</label>
+            <input pInputText id="username" formControlName="username" />
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <input pPassword id="password" type="password" formControlName="password" toggleMask />
+          </div>
+
+          <div class="field mt-3">
+            <button pButton type="submit" label="Submit" class="p-button-success"></button>
+          </div>
+        </form>
+      </ng-container>
+
+      <ng-container *ngIf="value === 2">
+        <div class="p-fluid">
+          <div class="field mb-3">
+            <label for="fileUpload">Upload Layer File</label>
+            <p-fileUpload name="layerFile" accept=".zip,.shp,.geojson" mode="basic" [auto]="false"
+              (onSelect)="onFileSelect($event)" [customUpload]="true" (uploadHandler)="onCustomUpload($event)"
+              [showUploadButton]="false" [showCancelButton]="false" chooseLabel="Choose File" [maxFileSize]="5000000">
+            </p-fileUpload>
+          </div>
+
+          <div class="field">
+            <button pButton type="button" label="Save" (click)="onSave()" class="p-button-success"></button>
+          </div>
+        </div>
+      </ng-container>
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>

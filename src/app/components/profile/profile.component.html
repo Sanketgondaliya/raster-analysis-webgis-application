@@ -1,3 +1,35 @@
-<div class="card flex justify-center">
-    <input type="text" pInputText [(ngModel)]="value" />
-</div>
+<form [formGroup]="ProjectForm" (ngSubmit)="onSubmit($event)" novalidate>
+    <fieldset class="p-fieldset mb-3">
+        <legend>Select Existing Project</legend>
+        <div class="grid mx-0">
+            <div class="col-12">
+                <div class="field">
+                    <label for="project_select">Project Name</label>
+                    <p-select [options]="ProjectNameList" formControlName="selected_project" optionLabel="label"
+                        optionValue="value" placeholder="Select Project Name" class="w-full md:w-56 surface-border" />
+                </div>
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset class="p-fieldset mb-3">
+        <legend>Create New Project</legend>
+        <div class="grid mx-0">
+            <div class="col-12">
+                <div class="field">
+                    <label for="project_name">Project Name</label>
+                    <input pInputText type="text" formControlName="project_name" placeholder="Enter Project Name"
+                        class="w-full md:w-56 surface-border" />
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="field">
+                    <label for="project_desc">Project Description</label>
+                    <textarea rows="5" cols="30" pTextarea formControlName="project_desc"
+                        placeholder="Write Project Description" class="w-full md:w-56 surface-border"></textarea>
+                </div>
+            </div>
+        </div>
+    </fieldset>
+    <p-button label="Saubmit" class="fill-btn" type="submit" />
+</form>
