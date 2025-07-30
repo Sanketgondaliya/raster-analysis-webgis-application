@@ -15,13 +15,16 @@ import { NgIf } from '@angular/common';
 export class LayoutComponent {
   sidebarVisible = false;
   selectedPanel: string | null = null;
+  ngOnInit(): void {
+    this.sidebarVisible = true;
+  }
 
   toggleSidebar() {
-    this.sidebarVisible = true; // force open
+    this.sidebarVisible = true;
   }
 
   handlePanelSelect(panel: string) {
     this.selectedPanel = panel;
-    this.sidebarVisible = true; // Force sidebar to open when panel changes
+    this.sidebarVisible = true;
   }
 }

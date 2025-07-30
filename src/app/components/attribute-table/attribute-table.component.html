@@ -1,1 +1,24 @@
-<p>attribute-table works!</p>
+<p-tabs [(value)]="selectedTab" (valueChange)="onTabChange($event)">
+  <p-tablist>
+    <p-tab *ngFor="let tab of tabs" [value]="tab.value">
+      {{ tab.label }}
+    </p-tab>
+  </p-tablist>
+
+  <p-tabpanels>
+    <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value">
+      <p-table [value]="tab.data">
+        <ng-template pTemplate="header">
+          <tr>
+            <th *ngFor="let col of tab.columns">{{ col.header }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td *ngFor="let col of tab.columns">{{ row[col.field] }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>

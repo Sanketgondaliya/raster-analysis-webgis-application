@@ -1,1 +1,29 @@
-<p>layer-switchder works!</p>
+<p-tabs [(value)]="value" (valueChange)="onTabChange($event)">
+  <p-tablist>
+    <p-tab *ngFor="let tab of tabs" [value]="tab.value">
+      {{ tab.label }}
+    </p-tab>
+  </p-tablist>
+
+  <p-tabpanels>
+    <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value">
+      <p-accordion [multiple]="true">
+        <p-accordion-panel *ngFor="let item of tab.items" [value]="item.id">
+          <p-accordion-header>
+            <p-checkbox
+              [binary]="true"
+              [(ngModel)]="item.checked"
+              (onChange)="onItemClick(item)"
+              inputId="{{ item.id }}"
+            ></p-checkbox>
+            <label for="{{ item.id }}" class="ml-2">{{ item.name }}</label>
+          </p-accordion-header>
+
+          <p-accordion-content>
+            <p class="m-0">ID: {{ item.id }}</p>
+          </p-accordion-content>
+        </p-accordion-panel>
+      </p-accordion>
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>

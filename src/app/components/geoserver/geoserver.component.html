@@ -1,1 +1,13 @@
-<p>geoserver works!</p>
+<p-tabs [(value)]="value" (valueChange)="onTabChange($event)">
+  <p-tablist>
+    <p-tab *ngFor="let tab of tabs" [value]="tab.value">
+      {{ tab.label }}
+    </p-tab>
+  </p-tablist>
+
+  <p-tabpanels>
+    <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value">
+      <p>{{ tab.label }} content goes here</p>
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>
