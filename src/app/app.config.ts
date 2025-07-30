@@ -1,8 +1,25 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter } from '@angular/router';
+// app.config.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { providePrimeNG } from 'primeng/config';
+import { provideRouter, withHashLocation } from '@angular/router'; // <-- import withHashLocation
+import Aura from '@primeuix/themes/aura';
 
-import { routes } from './app.routes';
+import { routes } from './app.routes';  // Ensure your app.routes.ts exports the routes array
 
 export const appConfig: ApplicationConfig = {
-  providers: [provideZoneChangeDetection({ eventCoalescing: true }), provideRouter(routes)]
+  providers: [
+    provideRouter(routes, withHashLocation()),  // <-- Enable hash-based routing
+    provideAnimationsAsync(),
+    providePrimeNG({
+      theme: {
+        preset: Aura,
+        options: {
+          prefix: 'p',
+          darkModeSelector: 'light',
+          cssLayer: false
+        }
+      }
+    })
+  ]
 };

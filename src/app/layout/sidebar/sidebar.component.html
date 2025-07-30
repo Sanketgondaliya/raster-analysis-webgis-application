@@ -1,0 +1,12 @@
+<div class="sidebar-container" [ngClass]="{ 'collapsed': collapsed }" [style.width]="!collapsed ? '400px' : '0'">
+  <!-- Toggle Button -->
+  <button pButton [icon]="collapsed ? 'pi pi-chevron-right' : 'pi pi-chevron-left'"
+    class="p-button-sm sidebar-toggle-btn" (click)="toggleCollapse()" type="button"
+    [title]="collapsed ? 'Open sidebar' : 'Close sidebar'"></button>
+
+  <!-- sidebar.component.html -->
+  <div class="sidebar-content" *ngIf="!collapsed">
+    <router-outlet></router-outlet>
+  </div>
+
+</div>

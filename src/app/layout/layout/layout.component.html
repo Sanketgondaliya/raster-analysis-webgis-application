@@ -1,0 +1,12 @@
+<app-header (toggleSidebar)="toggleSidebar()" (panelSelect)="handlePanelSelect($event)">
+</app-header>
+
+<div class="main-content flex h-full">
+  <app-sidebar *ngIf="sidebarVisible" [activePanel]="selectedPanel" (close)="sidebarVisible = false" class="shadow-lg">
+  </app-sidebar>
+
+
+  <app-map class="flex-1"></app-map>
+</div>
+
+<app-footer></app-footer>

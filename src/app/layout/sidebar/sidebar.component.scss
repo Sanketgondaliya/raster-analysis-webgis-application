@@ -1,0 +1,63 @@
+:host {
+  display: block;
+  height: 100%;
+  position: relative;
+}
+
+.sidebar-container {
+  height: 100%;
+  position: relative;
+  background: #ffffff;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  transition: width 0.3s ease;
+  border-right: 1px solid #ddd;
+  overflow: visible;
+}
+
+.sidebar-container.collapsed {
+  width: 0 !important;
+  border-right: none;
+}
+
+.sidebar-content {
+  padding: 1rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* More specific selector to override PrimeNG styles */
+button.p-button.sidebar-toggle-btn {
+  position: absolute;
+  top: 10px;
+  z-index: 10;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff !important;
+  border: 1px solid #ddd !important;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  color: #333 !important; /* Ensure icon color is visible */
+
+  /* Position when sidebar is open */
+  right: -15px;
+
+  /* Position when sidebar is closed */
+  .sidebar-container.collapsed & {
+    left: -0px;
+    right: auto;
+  }
+
+  &:hover {
+    background: #f5f5f5 !important;
+    border-color: #ccc !important;
+  }
+
+  /* Ensure the icon is properly centered */
+  .p-button-icon {
+    margin: 0 !important;
+  }
+}
