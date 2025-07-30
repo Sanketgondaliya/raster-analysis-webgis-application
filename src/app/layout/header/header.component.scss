@@ -22,7 +22,7 @@
 .logo {
   width: 100%;
   text-align: center;
-  
+
   @media (min-width: 769px) {
     width: 12rem;
     text-align: left;
@@ -33,7 +33,7 @@
   width: 100%;
   justify-content: center;
   flex-wrap: wrap;
-  
+
   @media (min-width: 769px) {
     width: auto;
   }
@@ -42,7 +42,7 @@
 .search-profile {
   width: 100%;
   justify-content: center;
-  
+
   @media (min-width: 769px) {
     width: 12rem;
     justify-content: flex-end;
@@ -54,11 +54,9 @@
   vertical-align: middle;
 }
 
-// Hide search on mobile (already handled by hidden md:inline-flex classes)
-// .search-input {
-//   display: none;
-//   
-//   @media (min-width: 769px) {
-//     display: inline-flex;
-//   }
-// }
+
+.active-route {
+  background-color: white !important;
+  color: green !important;
+  font-weight: bold;
+}
