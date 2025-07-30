@@ -6,11 +6,11 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { GeoserverComponent } from './components/geoserver/geoserver.component';
 
 export const routes: Routes = [
+  { path: '', redirectTo: 'layer-switcher', pathMatch: 'full' },
   { path: 'layer-switcher', component: LayerSwitchderComponent },
   { path: 'attribute-table', component: AttributeTableComponent },
   { path: 'query-module', component: QueryModuleComponent },
   { path: 'dashboard', component: DashboardComponent },
   { path: 'geoserver', component: GeoserverComponent },
-  { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-  { path: '**', redirectTo: 'dashboard' }
+  { path: '**', redirectTo: 'layer-switcher' }
 ];
