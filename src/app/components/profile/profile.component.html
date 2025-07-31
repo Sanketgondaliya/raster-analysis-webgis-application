@@ -1,17 +1,18 @@
-<form [formGroup]="ProjectForm" (ngSubmit)="onSubmit($event)" novalidate>
-    <fieldset class="p-fieldset mb-3">
-        <legend>Select Existing Project</legend>
-        <div class="grid mx-0">
-            <div class="col-12">
-                <div class="field">
-                    <label for="project_select">Project Name</label>
-                    <p-select [options]="ProjectNameList" formControlName="selected_project" optionLabel="label"
-                        optionValue="value" placeholder="Select Project Name" class="w-full md:w-56 surface-border" />
-                </div>
+<fieldset class="p-fieldset mb-3">
+    <legend>Select Existing Project</legend>
+    <div class="grid mx-0">
+        <div class="col-12">
+            <div class="field">
+                <label for="project_select">Project Name</label>
+                <p-select [options]="ProjectNameList" optionLabel="label" optionValue="value"
+                    [(ngModel)]="selectedProject" (onChange)="onProjectSelectChange()" placeholder="Select Project Name"
+                    class="w-full md:w-56 surface-border" />
             </div>
         </div>
-    </fieldset>
+    </div>
+</fieldset>
 
+<form [formGroup]="ProjectForm" (ngSubmit)="onSubmit($event)" novalidate>
     <fieldset class="p-fieldset mb-3">
         <legend>Create New Project</legend>
         <div class="grid mx-0">
@@ -31,5 +32,5 @@
             </div>
         </div>
     </fieldset>
-    <p-button label="Saubmit" class="fill-btn" type="submit" />
+    <p-button label="Submit" class="fill-btn" type="submit" />
 </form>

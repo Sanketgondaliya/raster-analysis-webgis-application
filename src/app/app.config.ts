@@ -7,7 +7,7 @@ import Aura from '@primeuix/themes/aura';
 
 import { routes } from './app.routes';  // Ensure your app.routes.ts exports the routes array
 import { provideHttpClient } from '@angular/common/http';
-
+import { MessageService } from "primeng/api";
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes, withHashLocation()),  // <-- Enable hash-based routing
@@ -22,6 +22,7 @@ export const appConfig: ApplicationConfig = {
           cssLayer: false
         }
       }
-    })
+    }),
+    MessageService,
   ]
 };

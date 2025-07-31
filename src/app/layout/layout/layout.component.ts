@@ -4,11 +4,12 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
 import { MapComponent } from '../map/map.component';
 import { FooterComponent } from '../footer/footer.component';
 import { NgIf } from '@angular/common';
-
+import { Toast } from "primeng/toast";
+import { ToastModule } from "primeng/toast"
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [HeaderComponent, SidebarComponent, MapComponent, FooterComponent, NgIf],
+  imports: [HeaderComponent, SidebarComponent, MapComponent, FooterComponent, NgIf, ToastModule, Toast],
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.scss']
 })
