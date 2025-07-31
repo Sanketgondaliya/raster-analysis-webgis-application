@@ -10,38 +10,64 @@
       <!-- <p>{{ tab.label }}</p> -->
       <ng-container *ngIf="value === 1">
         <form [formGroup]="datastoreForm" (ngSubmit)="onDatastoreSubmit()" class="p-fluid">
-          <div class="field">
-            <label for="workspaceName">Department Name</label>
-            <input pInputText id="department" formControlName="workspaceName" />
-          </div>
+          <div class="grid">
+            <div class="col-12">
+              <div class="field">
+                <label for="workspaceName">Department Name</label>
+                <input pInputText id="department" class="w-full" formControlName="workspaceName" />
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="host">Database Host</label>
+                <input pInputText id="host" class="w-full" formControlName="dbHost" />
+              </div>
 
-          <div class="field">
-            <label for="host">Database Host</label>
-            <input pInputText id="host" formControlName="dbHost" />
-          </div>
+            </div>
+            <div class="col-12">
 
-          <div class="field">
-            <label for="port">Port</label>
-            <input pInputText id="port" formControlName="dbPort" />
-          </div>
+              <div class="field">
+                <label for="port">Port</label>
+                <input pInputText id="port" class="w-full" formControlName="dbPort" />
+              </div>
 
-          <div class="field">
-            <label for="dbname">Database Name</label>
-            <input pInputText id="dbname" formControlName="dbName" />
-          </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="dbname">Database Name</label>
+                <input pInputText id="dbname" class="w-full" formControlName="dbName" />
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="username">Username</label>
+                <input pInputText id="username" class="w-full" formControlName="dbUser" />
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="password">Password</label>
+                <input pPassword id="password" class="w-full" type="password" formControlName="dbPassword" toggleMask />
+              </div>
+            </div>
+            <div class="col-12">
 
-          <div class="field">
-            <label for="username">Username</label>
-            <input pInputText id="username" formControlName="dbUser" />
-          </div>
 
-          <div class="field">
-            <label for="password">Password</label>
-            <input pPassword id="password" type="password" formControlName="dbPassword" toggleMask />
-          </div>
+              <div class="field mt-3">
+                <button pButton type="submit" class="w-full" label="Submit" class="p-button-success"></button>
+              </div>
+            </div>
 
-          <div class="field mt-3">
-            <button pButton type="submit" label="Submit" class="p-button-success"></button>
+
+
+
+
+
+
+
+
+
+
           </div>
         </form>
       </ng-container>
@@ -59,7 +85,7 @@
           <div class="col-12">
             <div class="field">
               <label for="project_select">Layer Name</label>
-              <input pInputText id="layername" [(ngModel)]="layername" name="layername" />
+              <input pInputText id="layername" class="w-full" [(ngModel)]="layername" name="layername" />
             </div>
           </div>
         </div>
