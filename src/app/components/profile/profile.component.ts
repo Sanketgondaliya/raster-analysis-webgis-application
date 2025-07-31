@@ -39,22 +39,30 @@ export class ProfileComponent implements OnInit {
     });
   }
 
-  getProjectList() {
-    this.geoserverService.geoserverProjectList().subscribe({
-      next: (response) => {
-        const workspaces = response?.workspaces.workspace || [];
+ getProjectList() {
+  this.geoserverService.geoserverProjectList().subscribe({
+    next: (response) => {
+      const workspaces = response?.workspaces?.workspace || [];
+
+      if (workspaces.length === 0) {
+        this.ProjectNameList = [];
+        this.toastService.showInfo('No projects found. Please create a project first.');
+      } else {
         this.ProjectNameList = workspaces.map((ws: any) => ({
           label: ws.name,
           value: ws.name
         }));
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        console.error("Error fetching data:", error);
-        this.toastService.showError(error || 'Error fetching data')
-      },
-    });
-  }
+      }
+
+      this.cdr.detectChanges();
+    },
+    error: (error) => {
+      console.error("Error fetching data:", error);
+      this.toastService.showError(error || 'Error fetching data');
+    },
+  });
+}
+
 
   onProjectSelectChange(): void {
     const selectedValue = this.selectedProject;
@@ -66,22 +74,37 @@ export class ProfileComponent implements OnInit {
 
   onSubmit(event: Event): void {
     event.preventDefault();
+
     if (this.ProjectForm.invalid) return;
+
     const formValue = this.ProjectForm.value;
+    const newProjectName = formValue.project_name;
+
     const payload = {
-      workspaceName: formValue.project_name
+      workspaceName: newProjectName
     };
 
     this.geoserverService.geoserverProject(payload).subscribe({
       next: (response) => {
-        this.toastService.showSuccess(response.message || 'Project created successfully')
-        this.cdr.detectChanges();
+        // ✅ Show success
+        this.toastService.showSuccess(response.message || 'Project created successfully');
+
+        // ✅ Store in localStorage
+        localStorage.setItem('selectedProject', newProjectName ?? '');
+
+        // ✅ Refresh project list (optional)
+        this.getProjectList();
+
+        // ✅ Reset form
+        this.ProjectForm.reset();
+        this.cdr.detectChanges(); // Optional: force change detection if needed
       },
       error: (error) => {
-        this.toastService.showError(error || 'Project created Fail')
+        this.toastService.showError(error || 'Project creation failed');
         console.error("Error creating project:", error);
       },
     });
   }
+
 
 }

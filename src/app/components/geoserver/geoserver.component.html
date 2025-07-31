@@ -13,8 +13,8 @@
           <div class="grid">
             <div class="col-12">
               <div class="field">
-                <label for="workspaceName">Department Name</label>
-                <input pInputText id="department" class="w-full" formControlName="workspaceName" />
+                <label for="datastorename">Department Name</label>
+                <input pInputText id="department" class="w-full" formControlName="datastorename" />
               </div>
             </div>
             <div class="col-12">
@@ -51,22 +51,13 @@
               </div>
             </div>
             <div class="col-12">
+              <div class="field mt-2" style="display: flex; gap: 0.5rem;">
+                <button pButton type="submit" label="Submit" class="p-button-success w-full" style="flex: 1;"></button>
 
-
-              <div class="field mt-3">
-                <button pButton type="submit" class="w-full" label="Submit" class="p-button-success"></button>
+                <button pButton type="button" label="Clear" (click)="clearForm()" class="p-button-secondary w-full"
+                  style="flex: 1;"></button>
               </div>
             </div>
-
-
-
-
-
-
-
-
-
-
 
           </div>
         </form>
@@ -76,9 +67,9 @@
         <div class="grid mx-0">
           <div class="col-12">
             <div class="field">
-              <label for="project_select">Project Name</label>
+              <label for="project_select">Select Department</label>
               <p-select [options]="ProjectNameList" optionLabel="label" optionValue="value"
-                [(ngModel)]="selectedProject" (onChange)="onProjectSelectChange()" placeholder="Select Project Name"
+                [(ngModel)]="selectedProject" (onChange)="onProjectSelectChange()" placeholder="Select Department Name"
                 class="w-full md:w-56 surface-border" />
             </div>
           </div>
@@ -97,10 +88,14 @@
               [showUploadButton]="false" [showCancelButton]="false" chooseLabel="Choose File" [maxFileSize]="5000000">
             </p-fileUpload>
           </div>
+          <div class="field mt-2" style="display: flex; gap: 0.5rem;">
+            <button pButton type="button" label="Save" (click)="onSaveFileUpload()" class="p-button-success w-full"
+              style="flex: 1;"></button>
 
-          <div class="field">
-            <button pButton type="button" label="Save" (click)="onSaveFileUpload()" class="p-button-success"></button>
+            <button pButton type="button" label="Clear" (click)="clearForm()" class="p-button-secondary w-full"
+              style="flex: 1;"></button>
           </div>
+
         </div>
       </ng-container>
     </p-tabpanel>
