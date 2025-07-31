@@ -9,6 +9,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
 import { GeoserverService } from '../services/geoserver.service';
 import { ToastService } from '../services/toast.service';
+import { MapService } from '../services/map.service'; // Adjust path if needed
 
 interface Tab {
   label: string;
@@ -42,6 +43,8 @@ export class GeoserverComponent {
   datastoreForm!: FormGroup;
   ProjectNameList: { label: string; value: string }[] = [];
   selectedProject = '';
+  selectedDataStore = '';
+
   selectedFile: File | null = null;
   layername = '';
 
@@ -49,9 +52,11 @@ export class GeoserverComponent {
     private fb: FormBuilder,
     private geoserverService: GeoserverService,
     private toastService: ToastService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {
     this.selectedProject = localStorage.getItem('selectedProject') || '';
+    this.selectedDataStore = localStorage.getItem('selectedDataStore') || '';
+
   }
 
   ngOnInit(): void {
@@ -91,8 +96,8 @@ export class GeoserverComponent {
           }));
 
           if (this.ProjectNameList.length === 1) {
-            this.selectedProject = this.ProjectNameList[0].value;
-            localStorage.setItem('selectedDataStore', this.selectedProject);
+            this.selectedDataStore = this.ProjectNameList[0].value;
+            localStorage.setItem('selectedDataStore', this.selectedDataStore);
           }
         }
 
@@ -115,7 +120,7 @@ export class GeoserverComponent {
 
   onProjectSelectChange(): void {
     if (this.selectedProject) {
-      localStorage.setItem('selectedDataStore', this.selectedProject);
+      localStorage.setItem('selectedDataStore', this.selectedDataStore);
     }
   }
 
@@ -212,7 +217,7 @@ export class GeoserverComponent {
     this.selectedFile = null;
     this.layername = '';
     this.selectedProject = '';
-    localStorage.removeItem('selectedDataStore');
+    //localStorage.removeItem('selectedDataStore');
     this.cdr.detectChanges();
   }
 }

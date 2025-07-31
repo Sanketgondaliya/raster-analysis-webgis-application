@@ -37,6 +37,13 @@ export class GeoserverService {
       `${this.apiUrl}/geoserver/workspaces/${data}/datastores`,
     );
   }
+  geoserverLayerList(data: string): Observable<any> {
+    return this.http.post<any>(
+      `${this.apiUrl}/geoserver/workspaces/${data}/datastores`,
+      {} 
+    );
+  }
+
   geoserverUploadfile(payload: FormData): Observable<any> {
     return this.http.post<any>(
       `${this.apiUrl}/import/publish-shp`,
