@@ -46,4 +46,5 @@ export class ApplicationSettingService {
     themeConfig: [],
     languageConfig: [],
   };
+  projectName:string='';
 }

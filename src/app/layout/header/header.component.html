@@ -12,10 +12,15 @@
   </div>
 
   <!-- Right Side Search and Profile -->
-  <div class="search-profile flex-none md:w-12rem flex justify-content-end align-items-center gap-2">
+  <!-- Right Side Search and Profile -->
+<div class="search-profile flex-none md:w-12rem flex flex-col justify-end items-end gap-1">
+  <div class="flex justify-end items-center gap-2">
     <input pInputText type="text" placeholder="Search..." class="p-inputtext-sm w-10rem hidden md:inline-flex" />
     <button pButton icon="pi pi-user" style="color: white;" (click)="openUserPanel()"></button>
   </div>
+<p class="text-xs text-white truncate text-right w-full">{{ applicationSettingService.projectName }}</p>
+</div>
+
 
   <p-drawer header="Profile" [(visible)]="isUserPanelVisible" position="right" [modal]="true">
     <app-profile></app-profile>

@@ -7,6 +7,7 @@ import { DrawerModule } from 'primeng/drawer';
 import { ProfileComponent } from '../../components/profile/profile.component';
 import { filter } from 'rxjs';
 import { CommonModule } from '@angular/common';
+import { ApplicationSettingService } from '../../components/services/application-setting.service';
 @Component({
   selector: 'app-header',
   standalone: true,
@@ -19,13 +20,15 @@ export class HeaderComponent {
   @Output() panelSelect = new EventEmitter<string>();
   isUserPanelVisible: boolean = false;
   currentRoute: string = '';
-
-  constructor(private router: Router) {
+  selectedProject: string = '';
+  constructor(private router: Router, public applicationSettingService: ApplicationSettingService) {
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(() => {
         this.currentRoute = this.router.url;
       });
+    this.selectedProject = this.applicationSettingService.projectName
+
   }
 
   openPanel(panel: string) {

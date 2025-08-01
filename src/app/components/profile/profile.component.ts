@@ -10,6 +10,8 @@ import { MapService } from '../services/map.service'; // adjust path
 import TileLayer from 'ol/layer/Tile';
 import ImageLayer from 'ol/layer/Image';
 import { ImageWMS, TileWMS } from 'ol/source';
+import { ApplicationSettingService } from '../services/application-setting.service';
+import { Router } from '@angular/router';
 
 
 @Component({
@@ -24,8 +26,8 @@ export class ProfileComponent implements OnInit {
   selectedProject: string | null = null;
   ProjectNameList: { label: string; value: string }[] = [];
 
-  constructor(  private mapService: MapService
-,private fb: FormBuilder, private geoserverService: GeoserverService, private cdr: ChangeDetectorRef, private toastService: ToastService) { }
+  constructor(private mapService: MapService, public applicationSettingService: ApplicationSettingService,
+    private fb: FormBuilder, private geoserverService: GeoserverService, private cdr: ChangeDetectorRef, private toastService: ToastService,private router: Router) { }
 
   ngOnInit(): void {
     this.initForm();
@@ -35,6 +37,7 @@ export class ProfileComponent implements OnInit {
     const storedProject = localStorage.getItem('selectedProject');
     if (storedProject) {
       this.selectedProject = storedProject;
+      this.applicationSettingService.projectName = this.selectedProject
     }
   }
 
@@ -46,62 +49,57 @@ export class ProfileComponent implements OnInit {
     });
   }
 
- getProjectList() {
-  this.geoserverService.geoserverProjectList().subscribe({
-    next: (response) => {
-      const workspaces = response?.workspaces?.workspace || [];
+  getProjectList() {
+    this.geoserverService.geoserverProjectList().subscribe({
+      next: (response) => {
+        const workspaces = response?.workspaces?.workspace || [];
 
-      if (workspaces.length === 0) {
-        this.ProjectNameList = [];
-        this.toastService.showInfo('No projects found. Please create a project first.');
-      } else {
-        this.ProjectNameList = workspaces.map((ws: any) => ({
-          label: ws.name,
-          value: ws.name
-        }));
-      }
+        if (workspaces.length === 0) {
+          this.ProjectNameList = [];
+          this.toastService.showInfo('No projects found. Please create a project first.');
+        } else {
+          this.ProjectNameList = workspaces.map((ws: any) => ({
+            label: ws.name,
+            value: ws.name
+          }));
+        }
 
-      this.cdr.detectChanges();
-    },
-    error: (error) => {
-      console.error("Error fetching data:", error);
-      this.toastService.showError(error || 'Error fetching data');
-    },
-  });
-}
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error("Error fetching data:", error);
+        this.toastService.showError(error || 'Error fetching data');
+      },
+    });
+  }
 
 
-onProjectSelectChange(): void {
+  onProjectSelectChange(): void {
   const selectedValue = this.selectedProject;
 
   if (selectedValue) {
-    // Clear entire localStorage
     localStorage.clear();
-
-    // Set only the selected project
     localStorage.setItem('selectedProject', selectedValue);
-
-    // Reset form
+    this.applicationSettingService.projectName = selectedValue;
     this.ProjectForm.reset();
 
     // Remove all WMS layers
     const map = this.mapService.getMap();
-    const layersToRemove: (TileLayer<TileWMS> | ImageLayer<ImageWMS>)[] = [];
-
     map.getLayers().forEach((layer) => {
-      // Check if it's a TileLayer or ImageLayer
       if (layer instanceof TileLayer || layer instanceof ImageLayer) {
         const source = layer.getSource();
         if (source instanceof TileWMS || source instanceof ImageWMS) {
-          layersToRemove.push(layer);
+          map.removeLayer(layer);
         }
       }
     });
 
-    layersToRemove.forEach((layer) => map.removeLayer(layer));
+    // Force Angular to "reload" current route
+    this.router.navigateByUrl('/', { skipLocationChange: true }).then(() => {
+      this.router.navigate([this.router.url]);
+    });
   }
 }
-
 
   onSubmit(event: Event): void {
     event.preventDefault();
