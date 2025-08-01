@@ -6,6 +6,12 @@ import { TextareaModule } from 'primeng/textarea';
 import { ButtonModule } from 'primeng/button';
 import { GeoserverService } from '../services/geoserver.service';
 import { ToastService } from '../services/toast.service';
+import { MapService } from '../services/map.service'; // adjust path
+import TileLayer from 'ol/layer/Tile';
+import ImageLayer from 'ol/layer/Image';
+import { ImageWMS, TileWMS } from 'ol/source';
+
+
 @Component({
   selector: 'app-profile',
   imports: [FormsModule, InputTextModule, Select, ReactiveFormsModule, ButtonModule, TextareaModule],
@@ -18,7 +24,8 @@ export class ProfileComponent implements OnInit {
   selectedProject: string | null = null;
   ProjectNameList: { label: string; value: string }[] = [];
 
-  constructor(private fb: FormBuilder, private geoserverService: GeoserverService, private cdr: ChangeDetectorRef, private toastService: ToastService) { }
+  constructor(  private mapService: MapService
+,private fb: FormBuilder, private geoserverService: GeoserverService, private cdr: ChangeDetectorRef, private toastService: ToastService) { }
 
   ngOnInit(): void {
     this.initForm();
@@ -64,13 +71,37 @@ export class ProfileComponent implements OnInit {
 }
 
 
-  onProjectSelectChange(): void {
-    const selectedValue = this.selectedProject;
-    if (selectedValue) {
-      localStorage.setItem('selectedProject', selectedValue);
-      const selectedOption = this.ProjectNameList.find(opt => opt.value === selectedValue);
-    }
+onProjectSelectChange(): void {
+  const selectedValue = this.selectedProject;
+
+  if (selectedValue) {
+    // Clear entire localStorage
+    localStorage.clear();
+
+    // Set only the selected project
+    localStorage.setItem('selectedProject', selectedValue);
+
+    // Reset form
+    this.ProjectForm.reset();
+
+    // Remove all WMS layers
+    const map = this.mapService.getMap();
+    const layersToRemove: (TileLayer<TileWMS> | ImageLayer<ImageWMS>)[] = [];
+
+    map.getLayers().forEach((layer) => {
+      // Check if it's a TileLayer or ImageLayer
+      if (layer instanceof TileLayer || layer instanceof ImageLayer) {
+        const source = layer.getSource();
+        if (source instanceof TileWMS || source instanceof ImageWMS) {
+          layersToRemove.push(layer);
+        }
+      }
+    });
+
+    layersToRemove.forEach((layer) => map.removeLayer(layer));
   }
+}
+
 
   onSubmit(event: Event): void {
     event.preventDefault();
