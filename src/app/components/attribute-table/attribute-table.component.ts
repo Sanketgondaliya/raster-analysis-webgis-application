@@ -1,11 +1,18 @@
-import { ChangeDetectorRef, Component, AfterViewInit, AfterViewChecked, NgZone } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  AfterViewInit,
+  AfterViewChecked,
+  NgZone
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TabsModule } from 'primeng/tabs';
 import { TableModule } from 'primeng/table';
+
 import { GeoserverService } from '../services/geoserver.service';
 import { ToastService } from '../services/toast.service';
 import { MapService } from '../services/map.service';
-import { WKB } from 'ol/format';  // Import the WKB format for parsing
+import { WKB } from 'ol/format';
 
 @Component({
   selector: 'app-attribute-table',
@@ -19,6 +26,8 @@ export class AttributeTableComponent implements AfterViewInit, AfterViewChecked 
   errorMessage: string = '';
   selectedProject = '';
   ProjectNameList: { label: string; value: string }[] = [];
+  checkedTables: { [key: string]: { checked: boolean; bbox: any } } = {};
+
   tabs: {
     label: string;
     value: string;
@@ -44,23 +53,24 @@ export class AttributeTableComponent implements AfterViewInit, AfterViewChecked 
   }
 
   ngOnInit() {
+    const storedCheckedTables = localStorage.getItem('checkedTables');
+    if (storedCheckedTables) {
+      this.checkedTables = JSON.parse(storedCheckedTables);
+    }
     this.getDatastoreList();
   }
 
   ngAfterViewInit() {
-    // Ensure tabs are loaded after the component initializes
     if (this.tabsLoaded && this.tabs.length > 0) {
-      // Set the first tab and table on initial load
       this.setInitialTabSelection();
-      this.cdr.detectChanges(); // Trigger change detection manually to ensure updates are reflected
+      this.cdr.detectChanges();
     }
   }
 
   ngAfterViewChecked() {
     if (this.tabsLoaded && this.tabs.length > 0 && !this.selectedTab) {
-      // Ensure that if the tab is not selected, we select the first one
       this.setInitialTabSelection();
-      this.cdr.detectChanges(); // Trigger change detection after setting the tab
+      this.cdr.detectChanges();
     }
   }
 
@@ -87,13 +97,10 @@ export class AttributeTableComponent implements AfterViewInit, AfterViewChecked 
           this.tabs = dataStores.map((ds: any) => ({
             label: ds.name,
             value: ds.name,
-            tables: [] // Initialize tables array for each datastore
+            tables: []
           }));
 
-          // Fetch tables for each datastore
-          this.tabs.forEach(tab => {
-            this.fetchTablesForDatastore(tab);
-          });
+          this.tabs.forEach(tab => this.fetchTablesForDatastore(tab));
         }
       },
       error: (error) => {
@@ -107,90 +114,78 @@ export class AttributeTableComponent implements AfterViewInit, AfterViewChecked 
     this.geoserverService.getTables(this.selectedProject, tab.value).subscribe({
       next: (response) => {
         if (response.success) {
-          // Map the tables, but exclude the "geom" column from the columns
-          tab.tables = response.tables.map((table: any) => ({
-            tableName: table.tableName,
-            // Filter out the "geom" column from the columns array
-            columns: Object.keys(table.data[0] || {}).filter((key) => key !== 'geom').map((key) => ({
-              field: key,
-              header: key
-            })),
-            // Keep the "geom" column in the data (without showing it in the table)
-            data: table.data.map((row: any) => {
-              const { geom, ...rest } = row; // Destructure to remove the "geom" field for display
-              return { ...rest, geom }; // Keep the "geom" field for zoom functionality
+          tab.tables = response.tables
+            .filter((table: any) => {
+              const key = `${tab.value}.${table.tableName}`;
+              return this.checkedTables[key]?.checked;
             })
-          }));
+            .map((table: any) => ({
+              tableName: table.tableName,
+              columns: Object.keys(table.data[0] || {}).filter((key) => key !== 'geom').map((key) => ({
+                field: key,
+                header: key
+              })),
+              data: table.data.map((row: any) => {
+                const { geom, ...rest } = row;
+                return { ...rest, geom };
+              })
+            }));
 
-          // Mark tabs as loaded and apply change detection manually
           this.tabsLoaded = true;
           this.ngZone.run(() => {
             this.setInitialTabSelection();
-            this.cdr.detectChanges(); // Ensure Angular triggers change detection
+            this.cdr.detectChanges();
           });
         } else {
-          this.errorMessage = response.message || `Failed to fetch tables for datastore ${tab.label}`;
+          this.errorMessage = response.message || `Failed to fetch tables for ${tab.label}`;
         }
       },
       error: (err) => {
-        this.errorMessage = err.message || `Error occurred while fetching tables for datastore ${tab.label}`;
+        this.errorMessage = err.message || `Error fetching tables for ${tab.label}`;
       }
     });
   }
 
-  // Method to zoom to feature when a row is clicked
   zoomToFeature(geom: any): void {
     if (!geom) {
-      console.error('Geometry data is missing!');
+      console.error('Missing geometry');
       return;
     }
 
-    const map = this.mapService.getMap();  // Use map service to get the map instance
-
+    const map = this.mapService.getMap();
     if (!map) {
-      console.error('Map is not initialized.');
+      console.error('Map is not initialized');
       return;
     }
 
     try {
-      // Create a new WKB format object to read the WKB geometry
       const wkbFormat = new WKB();
-
-      // Convert the WKB string to a feature
       const feature = wkbFormat.readFeature(geom, {
-        dataProjection: 'EPSG:4326', // Ensure your geometry is in the right projection
-        featureProjection: map.getView().getProjection()  // Use the map's projection for proper alignment
+        dataProjection: 'EPSG:4326',
+        featureProjection: map.getView().getProjection()
       });
 
-      // Get the geometry of the feature
       const geometry = feature.getGeometry();
-
-      // Check if geometry is undefined or invalid
       if (!geometry) {
-        console.error('Feature geometry is undefined or invalid.');
+        console.error('Invalid geometry');
         return;
       }
 
       const extent = geometry.getExtent();
-
-      // Zoom to the feature's extent
       map.getView().fit(extent, {
         size: map.getSize(),
-        padding: [50, 50, 50, 50], // Padding around the feature
-        duration: 1000 // Animation duration in milliseconds
+        padding: [50, 50, 50, 50],
+        duration: 1000
       });
     } catch (error) {
-      console.error('Error parsing geometry or zooming to feature', error);
+      console.error('Error zooming to feature:', error);
     }
   }
 
-  // Set initial tab selection and ensure the first table is loaded
   setInitialTabSelection(): void {
     if (this.tabs.length > 0 && !this.selectedTab) {
-      // Set the first tab and first table on initial load
       this.selectedTab = this.tabs[0].value;
 
-      // Ensure the first table is selected for each datastore
       this.tabs.forEach(tab => {
         if (tab.tables.length > 0 && !this.selectedTableTab[tab.value]) {
           this.selectedTableTab[tab.value] = tab.tables[0].tableName;
@@ -199,12 +194,10 @@ export class AttributeTableComponent implements AfterViewInit, AfterViewChecked 
     }
   }
 
-  // Triggered when the datastore tab is changed
   onTabChange(value: string | number): void {
     this.selectedTab = String(value);
   }
 
-  // Triggered when the table tab is changed within a datastore tab
   onTableTabChange(datastore: string, value: string | number): void {
     this.selectedTableTab[datastore] = String(value);
   }

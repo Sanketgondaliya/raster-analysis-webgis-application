@@ -4,14 +4,15 @@ import { TabsModule } from 'primeng/tabs';
 import { AccordionModule } from 'primeng/accordion';
 import { FormsModule } from '@angular/forms';
 import { CheckboxModule } from 'primeng/checkbox';
-import { ToastService } from '../services/toast.service';
-import { GeoserverService } from '../services/geoserver.service';
-import { MapService } from '../services/map.service';
 import { RadioButtonModule } from 'primeng/radiobutton';
 
 import Map from 'ol/Map';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
+
+import { ToastService } from '../services/toast.service';
+import { GeoserverService } from '../services/geoserver.service';
+import { MapService } from '../services/map.service';
 import { transformExtent } from 'ol/proj';
 
 interface TabItem {
@@ -34,22 +35,26 @@ interface DataStore {
 @Component({
   selector: 'app-layer-switchder',
   standalone: true,
-  imports: [CommonModule, FormsModule, TabsModule, AccordionModule, CheckboxModule, RadioButtonModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    TabsModule,
+    AccordionModule,
+    CheckboxModule,
+    RadioButtonModule
+  ],
   templateUrl: './layer-switchder.component.html',
   styleUrls: ['./layer-switchder.component.scss']
 })
 export class LayerSwitchderComponent {
   value: number = 0;
   selectedProject = '';
-  selectedDataStore = '';
   selectedBasemap: string = 'OSM';
-
   map!: Map;
 
-  // Updated checkedTables to store both checked and bbox
-  checkedTables: { [key: string]: { checked: boolean; bbox: any } } = {};
-  wmsLayers: { [key: string]: TileLayer<TileWMS> } = {};
   datastorelist: DataStore[] = [];
+  wmsLayers: { [key: string]: TileLayer<TileWMS> } = {};
+  checkedTables: { [key: string]: { checked: boolean; bbox: any } } = {};
 
   tabs: Tab[] = [
     {
@@ -86,6 +91,96 @@ export class LayerSwitchderComponent {
     this.selectedProject = localStorage.getItem('selectedProject') || '';
   }
 
+ ngOnInit(): void {
+  this.map = this.mapService.getMap();
+
+  const storedTables = localStorage.getItem('checkedTables');
+  if (storedTables) {
+    this.checkedTables = JSON.parse(storedTables);
+  }
+
+  this.loadAllLayers();
+}
+
+
+ loadAllLayers(): void {
+  if (!this.selectedProject) return;
+
+  for (const ds of this.datastorelist) {
+    for (const table of ds.tables) {
+      const key = `${ds.name}.${table.name}`;
+      const layerName = `${this.selectedProject}:${table.name}`;
+
+      if (this.wmsLayers[key]) continue;
+
+      const wmsLayer = new TileLayer({
+        source: new TileWMS({
+          url: `http://192.168.20.49:8080/geoserver/${this.selectedProject}/wms`,
+          params: {
+            'LAYERS': layerName,
+            'TILED': true,
+            'FORMAT': 'image/png',
+            'TRANSPARENT': true,
+            'srs': 'EPSG:4326'
+          },
+          serverType: 'geoserver',
+          transition: 0
+        }),
+        visible: this.checkedTables[key]?.checked || false,
+        zIndex: 999
+      });
+
+      this.wmsLayers[key] = wmsLayer;
+
+      if (!this.checkedTables[key]) {
+        this.checkedTables[key] = { checked: false, bbox: table.bbox };
+      }
+
+      this.map.addLayer(wmsLayer);
+    }
+  }
+
+  this.cdr.detectChanges();
+}
+
+
+  onItemClick(tableName: string, datastoreName: string): void {
+    const key = `${datastoreName}.${tableName}`;
+    const tableInfo = this.checkedTables[key];
+    const isChecked = tableInfo?.checked;
+
+    const layer = this.wmsLayers[key];
+    if (layer) {
+      layer.setVisible(isChecked);
+    }
+
+    // Save state to localStorage
+    localStorage.setItem('checkedTables', JSON.stringify(this.checkedTables));
+
+    // Zoom to layer extent if checked and bbox exists
+    if (isChecked && tableInfo?.bbox) {
+      const extent4326 = [
+        tableInfo.bbox.minx,
+        tableInfo.bbox.miny,
+        tableInfo.bbox.maxx,
+        tableInfo.bbox.maxy
+      ];
+
+      const extent3857 = transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
+
+      this.map.getView().fit(extent3857, {
+        duration: 1000,
+        padding: [50, 50, 50, 50]
+      });
+    }
+  }
+
+
+  onBasemapChange(selected: string): void {
+    this.mapService.removeCurrentBasemap();
+    this.mapService.addBasemap(selected);
+  }
+
   onTabChange(index: number | string): void {
     this.value = typeof index === 'string' ? parseInt(index, 10) : index;
     if (this.value === 1) {
@@ -102,90 +197,17 @@ export class LayerSwitchderComponent {
     this.geoserverService.geoserverLayerList(this.selectedProject).subscribe({
       next: (response) => {
         const dataStores = response?.datastores || [];
-
         if (dataStores.length === 0) {
-          this.datastorelist = [];
           this.toastService.showInfo('No datastores found. Please create one.');
-          localStorage.removeItem('selectedDataStore');
+          this.datastorelist = [];
         } else {
           this.datastorelist = dataStores;
-
-          for (const ds of this.datastorelist) {
-            for (const table of ds.tables) {
-              const key = `${ds.name}.${table.name}`;
-              if (!(key in this.checkedTables)) {
-                this.checkedTables[key] = {
-                  checked: false,
-                  bbox: table.bbox
-                };
-              }
-            }
-          }
+          this.loadAllLayers();
         }
-
-        this.cdr.detectChanges();
       },
-      error: (error) => {
-        console.error('Error fetching datastores:', error);
+      error: (err) => {
+        console.error('Error fetching datastore list:', err);
       }
     });
-  }
-
-  onBasemapChange(selected: string): void {
-    this.mapService.removeCurrentBasemap();
-    this.mapService.addBasemap(selected);
-  }
-
-  onItemClick(tableName: string, datastoreName: string): void {
-    this.map = this.mapService.getMap();
-
-    const layerName = `${this.selectedProject}:${tableName}`;
-    const layerKey = `${datastoreName}.${tableName}`;
-    const tableInfo = this.checkedTables[layerKey];
-    const isChecked = tableInfo?.checked;
-
-    if (isChecked) {
-      const wmsLayer = new TileLayer({
-        source: new TileWMS({
-          url: `http://192.168.20.49:8080/geoserver/${this.selectedProject}/wms`,
-          params: {
-            'LAYERS': layerName,
-            'TILED': true,
-            'FORMAT': 'image/png',
-            'TRANSPARENT': true,
-            'srs': 'EPSG:4326'
-          },
-          serverType: 'geoserver',
-          transition: 0
-        }),
-        visible: true,
-        zIndex: 999
-      });
-
-      this.map.addLayer(wmsLayer);
-      this.wmsLayers[layerKey] = wmsLayer;
-
-      if (tableInfo?.bbox) {
-        const extent4326 = [
-          tableInfo.bbox.minx,
-          tableInfo.bbox.miny,
-          tableInfo.bbox.maxx,
-          tableInfo.bbox.maxy
-        ];
-
-        const extent3857 = transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
-
-        this.map.getView().fit(extent3857, {
-          duration: 1000,
-          padding: [50, 50, 50, 50]
-        });
-      }
-    } else {
-      const layer = this.wmsLayers[layerKey];
-      if (layer) {
-        this.map.removeLayer(layer);
-        delete this.wmsLayers[layerKey];
-      }
-    }
   }
 }

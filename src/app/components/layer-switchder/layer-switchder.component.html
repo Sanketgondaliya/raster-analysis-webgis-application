@@ -6,57 +6,50 @@
   </p-tablist>
 
   <p-tabpanels>
-    <!-- Basemap & Temporal Tabs -->
-   <ng-container *ngFor="let tab of tabs">
-  <p-tabpanel *ngIf="tab.label !== 'Operational'" [value]="tab.value">
-    <p-accordion [multiple]="true">
-      <p-accordion-panel *ngFor="let item of tab.items" [value]="item.id">
-        <p-accordion-header>
-          <!-- Radio Button for Basemap -->
-          <p-radioButton *ngIf="tab.label === 'Basemap'" name="basemapGroup"
-            [value]="item.name" [(ngModel)]="selectedBasemap"
-            (ngModelChange)="onBasemapChange($event)"
-            (click)="$event.stopPropagation()"
-            inputId="{{ item.id }}">
-          </p-radioButton>
+    <ng-container *ngFor="let tab of tabs">
+      <p-tabpanel *ngIf="tab.label !== 'Operational'" [value]="tab.value">
+        <p-accordion [multiple]="true">
+          <p-accordion-panel *ngFor="let item of tab.items" [value]="item.id">
+            <p-accordion-header>
+              <p-radioButton *ngIf="tab.label === 'Basemap'" name="basemapGroup"
+                [value]="item.name" [(ngModel)]="selectedBasemap"
+                (ngModelChange)="onBasemapChange($event)"
+                (click)="$event.stopPropagation()"
+                [inputId]="item.id">
+              </p-radioButton>
 
-          <!-- Checkbox for Temporal -->
-          <p-checkbox *ngIf="tab.label === 'Temporal'" [binary]="true"
-            [(ngModel)]="item.checked"
-            (onChange)="onItemClick(item.name, tab.label)"
-            inputId="{{ item.id }}">
-          </p-checkbox>
+              <p-checkbox *ngIf="tab.label === 'Temporal'" [binary]="true"
+                [(ngModel)]="item.checked"
+                (onChange)="onItemClick(item.name, tab.label)"
+                [inputId]="item.id">
+              </p-checkbox>
 
-          <label for="{{ item.id }}" class="ml-2">{{ item.name }}</label>
-        </p-accordion-header>
-        <p-accordion-content>
-          <p class="m-0">ID: {{ item.id }}</p>
-        </p-accordion-content>
-      </p-accordion-panel>
-    </p-accordion>
-  </p-tabpanel>
-</ng-container>
+              <label [for]="item.id" class="ml-2">{{ item.name }}</label>
+            </p-accordion-header>
+            <p-accordion-content>
+              <p class="m-0">ID: {{ item.id }}</p>
+            </p-accordion-content>
+          </p-accordion-panel>
+        </p-accordion>
+      </p-tabpanel>
+    </ng-container>
 
-
-    <!-- Operational Tab -->
-   <!-- Operational Tab -->
-<p-tabpanel *ngIf="value === 1" [value]="1">
-  <p-accordion [multiple]="true">
-    <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
-      <p-accordion-header>{{ ds.name }}</p-accordion-header>
-      <p-accordion-content>
-        <div *ngFor="let table of ds.tables" class="flex align-items-center gap-2 ml-3 my-2">
-          <p-checkbox [binary]="true"
-                      [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
-                      (onChange)="onItemClick(table.name, ds.name)"
-                      inputId="{{ ds.name + '_' + table.name }}">
-          </p-checkbox>
-          <label for="{{ ds.name + '_' + table.name }}">{{ table.name }}</label>
-        </div>
-      </p-accordion-content>
-    </p-accordion-panel>
-  </p-accordion>
-</p-tabpanel>
-
+    <p-tabpanel *ngIf="value === 1" [value]="1">
+      <p-accordion [multiple]="true">
+        <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
+          <p-accordion-header>{{ ds.name }}</p-accordion-header>
+          <p-accordion-content>
+            <div *ngFor="let table of ds.tables" class="flex align-items-center gap-2 ml-3 my-2">
+              <p-checkbox [binary]="true"
+                [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
+                (onChange)="onItemClick(table.name, ds.name)"
+                [inputId]="ds.name + '_' + table.name">
+              </p-checkbox>
+              <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>
+            </div>
+          </p-accordion-content>
+        </p-accordion-panel>
+      </p-accordion>
+    </p-tabpanel>
   </p-tabpanels>
 </p-tabs>

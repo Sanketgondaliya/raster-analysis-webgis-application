@@ -7,35 +7,40 @@
 
   <p-tabpanels>
     <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value">
-      <p-tabs [(value)]="selectedTableTab[tab.value]" (valueChange)="onTableTabChange(tab.value, $event)">
-        <p-tablist>
-          <p-tab *ngFor="let table of tab.tables" [value]="table.tableName">
-            {{ table.tableName }}
-          </p-tab>
-        </p-tablist>
+      <ng-container *ngIf="tab.tables.length > 0; else noTables">
+        <p-tabs [(value)]="selectedTableTab[tab.value]" (valueChange)="onTableTabChange(tab.value, $event)">
+          <p-tablist>
+            <p-tab *ngFor="let table of tab.tables" [value]="table.tableName">
+              {{ table.tableName }}
+            </p-tab>
+          </p-tablist>
 
-        <p-tabpanels>
-          <p-tabpanel *ngFor="let table of tab.tables" [value]="table.tableName">
-            <p-table [value]="table.data">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Actions</th> <!-- Move Actions column first -->
-                  <th *ngFor="let col of table.columns">{{ col.header }}</th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-row>
-                <tr>
-                  <td>
-                    <!-- Zoom Button -->
-                    <button (click)="zoomToFeature(row['geom'])">Zoom</button>
-                  </td>
-                  <td *ngFor="let col of table.columns">{{ row[col.field] }}</td>
-                </tr>
-              </ng-template>
-            </p-table>
-          </p-tabpanel>
-        </p-tabpanels>
-      </p-tabs>
+          <p-tabpanels>
+            <p-tabpanel *ngFor="let table of tab.tables" [value]="table.tableName">
+              <p-table [value]="table.data">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Actions</th>
+                    <th *ngFor="let col of table.columns">{{ col.header }}</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-row>
+                  <tr>
+                    <td>
+                      <button (click)="zoomToFeature(row['geom'])">Zoom</button>
+                    </td>
+                    <td *ngFor="let col of table.columns">{{ row[col.field] }}</td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
+      </ng-container>
+
+      <ng-template #noTables>
+        <p>No checked layers available for this datastore.</p>
+      </ng-template>
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>
