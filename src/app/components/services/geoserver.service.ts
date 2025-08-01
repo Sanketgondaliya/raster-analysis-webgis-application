@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from "@angular/common/http";
-import { Observable } from "rxjs";
+import { catchError, Observable, throwError } from "rxjs";
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -11,6 +11,7 @@ export class GeoserverService {
 
   constructor(private http: HttpClient) { }
 
+  // Existing methods
   geoserverProjectList(): Observable<any> {
     return this.http.get<any>(
       `${this.apiUrl}/geoserver/workspaces`,
@@ -31,16 +32,16 @@ export class GeoserverService {
     );
   }
 
-
   geoserverDataStoreList(data: string): Observable<any> {
     return this.http.get<any>(
       `${this.apiUrl}/geoserver/workspaces/${data}/datastores`,
     );
   }
+
   geoserverLayerList(data: string): Observable<any> {
     return this.http.post<any>(
       `${this.apiUrl}/geoserver/workspaces/${data}/datastores`,
-      {} 
+      {}
     );
   }
 
@@ -50,6 +51,22 @@ export class GeoserverService {
       payload
     );
   }
+  getTables(dbName: string, schemaName: string): Observable<any> {
+    const payload = {
+      dbName: dbName,
+      schemaName: schemaName
+    };
 
+    // Assuming this.apiUrl is already the correct base URL
+    const url = `${this.apiUrl}/get-tables`;
+
+    return this.http.post<any>(url, payload).pipe(
+      catchError((error) => {
+        // Handle errors if the API call fails
+        console.error('Error fetching tables:', error);
+        return throwError(() => new Error('Failed to fetch tables.'));
+      })
+    );
+  }
 
 }

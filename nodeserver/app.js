@@ -664,6 +664,77 @@ app.post('/api/geoserver/workspaces/:workspace/datastores', async (req, res) => 
   }
 });
 
+// ===============================================================
+// POST /api/get-tables
+// Description: Gets all table names from a specified database and schema
+// Request Body Parameters:
+//   - dbName: Name of the PostgreSQL database (required)
+//   - schemaName: Name of the schema (required)
+// ===============================================================
+app.post('/api/get-tables', async (req, res) => {
+  try {
+    const { dbName, schemaName } = req.body;
+
+    if (!dbName || !schemaName) {
+      return res.status(400).json({ error: 'Both dbName and schemaName are required' });
+    }
+
+    const client = new Client({
+      ...pgAdminConfig,
+      database: dbName
+    });
+
+    await client.connect();
+
+    // Query to get the list of table names
+    const query = `
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = $1
+        AND table_type = 'BASE TABLE';
+    `;
+    const result = await client.query(query, [schemaName]);
+    const tableNames = result.rows.map(row => row.table_name);
+
+    if (tableNames.length === 0) {
+      await client.end();
+      return res.json({
+        success: true,
+        message: `No tables found in schema '${schemaName}' of database '${dbName}'`,
+        tables: []
+      });
+    }
+
+    // Query the data from each table and return it
+    const tablesData = [];
+
+    for (const tableName of tableNames) {
+      const dataQuery = `SELECT * FROM "${schemaName}"."${tableName}" LIMIT 10`; // Limiting rows for demo
+      const tableDataResult = await client.query(dataQuery);
+      tablesData.push({
+        tableName,
+        data: tableDataResult.rows
+      });
+    }
+
+    await client.end();
+
+    return res.json({
+      success: true,
+      message: `Tables and data from schema '${schemaName}' of database '${dbName}' fetched successfully`,
+      tables: tablesData
+    });
+
+  } catch (error) {
+    console.error('Error fetching table names and data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch tables and data',
+      error: error.message
+    });
+  }
+});
+
 
 // Start server
 app.listen(port, () => {
