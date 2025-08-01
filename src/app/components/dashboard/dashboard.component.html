@@ -9,19 +9,18 @@
     <p-tabpanel *ngFor="let ds of datastorelist; let i = index" [value]="i">
       <div class="grid mx-0">
         <!-- Table Select -->
-        <div class="col-12">
+        <div class="col-6">
           <div class="field">
             <label for="tableSelect{{ i }}">Select Table</label>
             <p-select inputId="tableSelect{{ i }}" [options]="ds.tables" [(ngModel)]="selectedTables[ds.name]"
               optionLabel="name" placeholder="Choose a Table"
               (onChange)="handleTableSelect(ds.name); onTableChange(ds.name, selectedTables[ds.name])">
             </p-select>
-
           </div>
         </div>
 
         <!-- Chart Type Select -->
-        <div class="col-12">
+        <div class="col-6">
           <div class="field">
             <label>Chart Type</label>
             <p-select *ngIf="selectedTables[ds.name]" [options]="chartTypes" [(ngModel)]="selectedChartTypes[ds.name]"
@@ -32,7 +31,7 @@
         </div>
 
         <!-- X-Axis Select -->
-        <div class="col-12">
+        <div class="col-6">
           <div class="field">
             <label>X-Axis Column</label>
             <p-select *ngIf="selectedColumns[ds.name]" [options]="xAxisOptions[ds.name]"
@@ -43,7 +42,7 @@
         </div>
 
         <!-- Y-Axis Select -->
-        <div class="col-12">
+        <div class="col-6">
           <div class="field">
             <label>Y-Axis Column</label>
             <p-select *ngIf="selectedColumns[ds.name]" [options]="yAxisOptions[ds.name]"
@@ -52,14 +51,16 @@
             </p-select>
           </div>
         </div>
+
         <!-- Fetch Chart Data Button -->
         <div class="col-12 mt-2">
           <button pButton type="button" label="Fetch Chart Data" icon="pi pi-chart-bar"
-            (click)="generateChartData(ds.name)">data
+            (click)="generateChartData(ds.name)">Fetch Data
           </button>
         </div>
 
-        <canvas *ngIf="chartDataMap[ds.name]" id="chartCanvas-{{ ds.name }}"></canvas>
+        <!-- Always show canvas with fixed size -->
+        <canvas id="chartCanvas-{{ ds.name }}" style="width: 100%; height: 400px;"></canvas>
       </div>
     </p-tabpanel>
   </p-tabpanels>

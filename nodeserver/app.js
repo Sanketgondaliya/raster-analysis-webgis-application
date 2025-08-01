@@ -769,22 +769,14 @@ app.post('/api/get-columns', async (req, res) => {
 	}
 });
 app.post('/api/get-chart-data', async (req, res) => {
-	const { dbName, schemaName, tableName, xColumn, yColumn } = req.body;
+	const { dbName, schemaName, tableName, xColumn, yColumn, chartType } = req.body;
 
-	// Basic input validation
-	if (!dbName || !schemaName || !tableName || !xColumn || !yColumn) {
+	if (!dbName || !schemaName || !tableName || !xColumn || !yColumn || !chartType) {
 		return res.status(400).json({ error: 'Missing required fields.' });
 	}
 
-	// Allow only valid characters for identifiers (alphanumeric + underscore)
 	const identifierRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-	if (
-		!identifierRegex.test(schemaName) ||
-		!identifierRegex.test(tableName) ||
-		!identifierRegex.test(xColumn) ||
-		!identifierRegex.test(yColumn)
-	) {
+	if (![schemaName, tableName, xColumn, yColumn].every(v => identifierRegex.test(v))) {
 		return res.status(400).json({ error: 'Invalid characters in identifiers.' });
 	}
 
@@ -796,16 +788,27 @@ app.post('/api/get-chart-data', async (req, res) => {
 		database: dbName,
 	});
 
+	let query = '';
 	try {
-		// Use double quotes for identifiers to handle case sensitivity safely
-		const query = `
-      SELECT "${xColumn}", "${yColumn}"
-      FROM "${schemaName}"."${tableName}"
-      LIMIT 20;
-    `;
+		switch (chartType) {
+			case 'pie':
+				query = buildPieChartQuery(schemaName, tableName, xColumn, yColumn);
+				break;
+			case 'bar':
+				query = buildBarChartQuery(schemaName, tableName, xColumn, yColumn);
+				break;
+			case 'column':
+				query = buildColumnChartQuery(schemaName, tableName, xColumn, yColumn);
+				break;
+			case 'line':
+				query = buildLineChartQuery(schemaName, tableName, xColumn, yColumn);
+				break;
+			default:
+				return res.status(400).json({ error: 'Unsupported chart type.' });
+		}
 
+		console.log('Query:', query);
 		const result = await client.query(query);
-
 		res.json(result.rows);
 	} catch (err) {
 		console.error('Error fetching chart data:', err);
@@ -814,6 +817,42 @@ app.post('/api/get-chart-data', async (req, res) => {
 		client.end();
 	}
 });
+function buildPieChartQuery(schema, table, xCol, yCol) {
+	return `
+    SELECT "${xCol}" AS label, SUM(CAST("${yCol}" AS NUMERIC)) AS value
+    FROM "${schema}"."${table}"
+    GROUP BY "${xCol}"
+    ORDER BY "${xCol}";
+  `;
+}
+
+function buildBarChartQuery(schema, table, xCol, yCol) {
+	return `
+    SELECT "${xCol}" AS label, SUM(CAST("${yCol}" AS NUMERIC)) AS value
+    FROM "${schema}"."${table}"
+    GROUP BY "${xCol}"
+    ORDER BY "${xCol}";
+  `;
+}
+
+function buildColumnChartQuery(schema, table, xCol, yCol) {
+	return `
+    SELECT "${xCol}" AS label, SUM(CAST("${yCol}" AS NUMERIC)) AS value
+    FROM "${schema}"."${table}"
+    GROUP BY "${xCol}"
+    ORDER BY "${xCol}";
+  `;
+}
+
+function buildLineChartQuery(schema, table, xCol, yCol) {
+	return `
+    SELECT "${xCol}" AS label, SUM(CAST("${yCol}" AS NUMERIC)) AS value
+    FROM "${schema}"."${table}"
+    GROUP BY "${xCol}"
+    ORDER BY "${xCol}";
+  `;
+}
+
 // Start server
 app.listen(port, () => {
 	console.log(`Server running on port ${port}`);

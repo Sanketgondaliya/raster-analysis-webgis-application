@@ -5,10 +5,23 @@ import { TabsModule } from 'primeng/tabs';
 import { Select } from 'primeng/select';
 import { ToastService } from '../services/toast.service';
 import { GeoserverService } from '../services/geoserver.service';
-import { of } from 'rxjs';
 import { ChartConfiguration, ChartType, ChartOptions } from 'chart.js';
-import { Chart, ChartTypeRegistry } from 'chart.js';
-
+import { ChartTypeRegistry } from 'chart.js';
+import {
+  Chart,
+  ArcElement,
+  BarController,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Legend,
+  Title,
+  Tooltip,
+  LineController,
+  LineElement,
+  PointElement,
+  PieController
+} from 'chart.js';
 interface Table {
   name: string;
   bbox: any;
@@ -18,7 +31,20 @@ interface DataStore {
   name: string;
   tables: Table[];
 }
-
+Chart.register(
+  ArcElement,
+  PieController,
+  BarController,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Legend,
+  Title,
+  Tooltip,
+  LineController,
+  LineElement,
+  PointElement
+);
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -62,6 +88,10 @@ export class DashboardComponent {
       [tableName: string]: { column_name: string; data_type: string }[];
     };
   } = {};
+
+  private charts: { [key: string]: Chart } = {};
+
+  chartDataMap: { [dsName: string]: ChartConfiguration['data'] } = {};
 
   constructor(
     private toastService: ToastService,
@@ -144,53 +174,55 @@ export class DashboardComponent {
       this.selectedColumns[dsName].y = undefined;
     }
   }
-  private charts: { [key: string]: Chart } = {};
 
   generateChartData(dsName: string): void {
     const selected = this.selectedColumns[dsName];
     const table = this.selectedTables[dsName];
     const chartType = this.selectedChartTypes[dsName];
-
+    debugger
     if (!selected?.x || !selected?.y || !table) {
+      this.toastService.showInfo('Please select X-axis, Y-axis columns and chart type first.');
       return;
     }
 
     const dbName = this.selectedProject;
     const schemaName = dsName;
     const tableName = table.name;
-    const xColumn = selected.x;
-    const yColumn = selected.y;
+    const xColumn = selected.x!;
+    const yColumn = selected.y!;
 
-    this.geoserverService.getChartData(dbName, schemaName, tableName, xColumn, yColumn).subscribe({
+    this.geoserverService.getChartData(dbName, schemaName, tableName, xColumn, yColumn, chartType).subscribe({
       next: (response) => {
-        const labels = response.map(item => item[xColumn]);
-        const data = response.map(item => item[yColumn]);
+        const labels = response.map(item => item.label);
+        const data = response.map(item => Number(item.value));
+
+
+        // Update chartDataMap to show canvas
+        this.chartDataMap[dsName] = {
+          labels,
+          datasets: [{
+            label: `${yColumn} vs ${xColumn}`,
+            data,
+            backgroundColor: [
+              '#42A5F5', '#66BB6A', '#FFA726', '#AB47BC', '#FF7043',
+            ],
+          }],
+        };
 
         const canvasId = `chartCanvas-${dsName}`;
         const canvas: any = document.getElementById(canvasId);
         const ctx = canvas?.getContext('2d');
 
         if (ctx) {
-          // Destroy old chart if exists
           if (this.charts[dsName]) {
             this.charts[dsName].destroy();
           }
 
-          // Cast chartJsType as keyof ChartTypeRegistry for type safety
           const chartJsType = (chartType === 'column' ? 'bar' : chartType) as keyof ChartTypeRegistry;
 
           this.charts[dsName] = new Chart(ctx, {
             type: chartJsType,
-            data: {
-              labels,
-              datasets: [{
-                label: `${yColumn} vs ${xColumn}`,
-                data,
-                backgroundColor: [
-                  '#42A5F5', '#66BB6A', '#FFA726', '#AB47BC', '#FF7043',
-                ],
-              }],
-            },
+            data: this.chartDataMap[dsName],
             options: {
               responsive: true,
               plugins: {
@@ -203,13 +235,10 @@ export class DashboardComponent {
       },
       error: (err) => {
         console.error('Error loading chart data', err);
+        this.toastService.showError('Failed to load chart data.');
       }
     });
   }
-
-  chartDataMap: { [dsName: string]: ChartConfiguration['data'] } = {};
-
-
 
   onTableChange(schemaName: string, table: any) {
     const tableName = typeof table === 'string' ? table : table?.name;
