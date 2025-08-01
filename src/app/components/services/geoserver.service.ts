@@ -80,14 +80,15 @@ export class GeoserverService {
       })
     );
   }
-  getChartData(dbName: string, schemaName: string, tableName: string, xColumn: string, yColumn: string,chartType:string): Observable<any[]> {
+  getChartData(dbName: string, schemaName: string, tableName: string, xColumn: string, yColumn: string,chartType:string,analysisType:string): Observable<any[]> {
   const payload = {
     dbName,
     schemaName,
     tableName,
     xColumn,
     yColumn,
-    chartType
+    chartType,
+    analysisType
   };
   const url = `${this.apiUrl}/get-chart-data`;
 

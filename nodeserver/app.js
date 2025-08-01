@@ -792,17 +792,27 @@ app.post('/api/get-chart-data', async (req, res) => {
 	try {
 		switch (chartType) {
 			case 'pie':
-				query = buildPieChartQuery(schemaName, tableName, xColumn, yColumn);
-				break;
 			case 'bar':
-				query = buildBarChartQuery(schemaName, tableName, xColumn, yColumn);
-				break;
 			case 'column':
-				query = buildColumnChartQuery(schemaName, tableName, xColumn, yColumn);
+				// Grouped count of Y by X (e.g., departments and number of employees)
+				query = `
+          SELECT "${xColumn}" AS label, COUNT("${yColumn}") AS value
+          FROM "${schemaName}"."${tableName}"
+          GROUP BY "${xColumn}"
+          ORDER BY "${xColumn}";
+        `;
 				break;
+
 			case 'line':
-				query = buildLineChartQuery(schemaName, tableName, xColumn, yColumn);
+				// If Y is numeric (e.g., monthly sales), calculate total or average
+				query = `
+          SELECT "${xColumn}" AS label, SUM(CAST("${yColumn}" AS NUMERIC)) AS value
+          FROM "${schemaName}"."${tableName}"
+          GROUP BY "${xColumn}"
+          ORDER BY "${xColumn}";
+        `;
 				break;
+
 			default:
 				return res.status(400).json({ error: 'Unsupported chart type.' });
 		}
@@ -817,41 +827,6 @@ app.post('/api/get-chart-data', async (req, res) => {
 		client.end();
 	}
 });
-function buildPieChartQuery(schema, table, xCol, yCol) {
-	return `
-    SELECT "${xCol}" AS label, SUM(CAST("${yCol}" AS NUMERIC)) AS value
-    FROM "${schema}"."${table}"
-    GROUP BY "${xCol}"
-    ORDER BY "${xCol}";
-  `;
-}
-
-function buildBarChartQuery(schema, table, xCol, yCol) {
-	return `
-    SELECT "${xCol}" AS label, SUM(CAST("${yCol}" AS NUMERIC)) AS value
-    FROM "${schema}"."${table}"
-    GROUP BY "${xCol}"
-    ORDER BY "${xCol}";
-  `;
-}
-
-function buildColumnChartQuery(schema, table, xCol, yCol) {
-	return `
-    SELECT "${xCol}" AS label, SUM(CAST("${yCol}" AS NUMERIC)) AS value
-    FROM "${schema}"."${table}"
-    GROUP BY "${xCol}"
-    ORDER BY "${xCol}";
-  `;
-}
-
-function buildLineChartQuery(schema, table, xCol, yCol) {
-	return `
-    SELECT "${xCol}" AS label, SUM(CAST("${yCol}" AS NUMERIC)) AS value
-    FROM "${schema}"."${table}"
-    GROUP BY "${xCol}"
-    ORDER BY "${xCol}";
-  `;
-}
 
 // Start server
 app.listen(port, () => {

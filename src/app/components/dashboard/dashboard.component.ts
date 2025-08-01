@@ -64,6 +64,16 @@ export class DashboardComponent {
     responsive: true,
     maintainAspectRatio: false
   };
+  analysisTypes = [
+    { label: 'Count', value: 'count' },
+    { label: 'Sum', value: 'sum' },
+    { label: 'Average', value: 'avg' },
+    { label: 'Minimum', value: 'min' },
+    { label: 'Maximum', value: 'max' },
+    { label: 'Distinct Count', value: 'distinct' }
+  ];
+
+  selectedAnalysisType: string = ''; // Just a single value
 
   dataTypeSupportChart = {
     numeric: ["smallint", "integer", "bigint", "decimal", "numeric", "real", "double precision", "serial", "bigserial"],
@@ -179,7 +189,6 @@ export class DashboardComponent {
     const selected = this.selectedColumns[dsName];
     const table = this.selectedTables[dsName];
     const chartType = this.selectedChartTypes[dsName];
-    debugger
     if (!selected?.x || !selected?.y || !table) {
       this.toastService.showInfo('Please select X-axis, Y-axis columns and chart type first.');
       return;
@@ -190,8 +199,8 @@ export class DashboardComponent {
     const tableName = table.name;
     const xColumn = selected.x!;
     const yColumn = selected.y!;
-
-    this.geoserverService.getChartData(dbName, schemaName, tableName, xColumn, yColumn, chartType).subscribe({
+    const analysisType = this.selectedAnalysisType;
+    this.geoserverService.getChartData(dbName, schemaName, tableName, xColumn, yColumn, chartType, analysisType).subscribe({
       next: (response) => {
         const labels = response.map(item => item.label);
         const data = response.map(item => Number(item.value));
