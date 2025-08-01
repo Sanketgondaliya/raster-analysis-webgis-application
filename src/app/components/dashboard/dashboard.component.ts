@@ -1,28 +1,236 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ChartModule } from 'primeng/chart';
+import { FormsModule } from '@angular/forms';
+import { TabsModule } from 'primeng/tabs';
+import { Select } from 'primeng/select';
+import { ToastService } from '../services/toast.service';
+import { GeoserverService } from '../services/geoserver.service';
+import { of } from 'rxjs';
+import { ChartConfiguration, ChartType, ChartOptions } from 'chart.js';
+import { Chart, ChartTypeRegistry } from 'chart.js';
+
+interface Table {
+  name: string;
+  bbox: any;
+}
+
+interface DataStore {
+  name: string;
+  tables: Table[];
+}
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, ChartModule],
+  imports: [CommonModule, FormsModule, TabsModule, Select],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent {
-  chartData = {
-    labels: ['Red', 'Blue', 'Yellow'],
-    datasets: [
-      {
-        label: 'Votes',
-        data: [12, 19, 3],
-        backgroundColor: ['red', 'blue', 'yellow']
-      }
-    ]
-  };
+  activeTabIndex = 0;
 
-  chartOptions = {
+  datastorelist: DataStore[] = [];
+  selectedTables: { [dsName: string]: Table } = {};
+  selectedColumns: { [dsName: string]: { x?: string; y?: string } } = {};
+  selectedChartTypes: { [dsName: string]: string } = {};
+
+  chartOptions: ChartOptions = {
     responsive: true,
     maintainAspectRatio: false
   };
+
+  dataTypeSupportChart = {
+    numeric: ["smallint", "integer", "bigint", "decimal", "numeric", "real", "double precision", "serial", "bigserial"],
+    string: ["character varying", "varchar", "character", "char", "text"]
+  };
+
+  chartTypes = [
+    { label: 'Pie Chart', value: 'pie' as ChartType },
+    { label: 'Bar Chart', value: 'bar' as ChartType },
+    { label: 'Column Chart', value: 'column' as any },
+    { label: 'Line Chart', value: 'line' as ChartType }
+  ];
+
+  xAxisOptions: { [dsName: string]: string[] } = {};
+  yAxisOptions: { [dsName: string]: string[] } = {};
+
+  selectedProject: string;
+  selectedDataStore: string;
+
+  columnsMap: {
+    [dsName: string]: {
+      [tableName: string]: { column_name: string; data_type: string }[];
+    };
+  } = {};
+
+  constructor(
+    private toastService: ToastService,
+    private geoserverService: GeoserverService
+  ) {
+    this.selectedProject = localStorage.getItem('selectedProject') || '';
+    this.selectedDataStore = localStorage.getItem('selectedDataStore') || '';
+  }
+
+  ngOnInit(): void {
+    this.getDatastoreList();
+  }
+
+  getDatastoreList(): void {
+    const selectedProject = localStorage.getItem('selectedProject') || '';
+    if (!selectedProject) {
+      this.toastService.showInfo('Please select a project first.');
+      return;
+    }
+
+    this.geoserverService.geoserverLayerList(selectedProject).subscribe({
+      next: (response) => {
+        this.datastorelist = response?.datastores || [];
+      },
+      error: (err) => {
+        console.error('Error fetching datastore list:', err);
+      }
+    });
+  }
+
+  handleTableSelect(dsName: string): void {
+    this.selectedColumns[dsName] = { x: undefined, y: undefined };
+    this.selectedChartTypes[dsName] = '';
+  }
+
+  onChartTypeChange(dsName: string): void {
+    const table = this.selectedTables[dsName]?.name;
+    let chartType = this.selectedChartTypes[dsName];
+
+    if (chartType === 'column') {
+      chartType = 'bar';
+    }
+
+    if (!table || !this.columnsMap[dsName]?.[table] || !chartType) {
+      this.xAxisOptions[dsName] = [];
+      this.yAxisOptions[dsName] = [];
+      return;
+    }
+
+    const columnMeta = this.columnsMap[dsName][table];
+    const numeric = this.dataTypeSupportChart.numeric;
+    const string = this.dataTypeSupportChart.string;
+
+    this.xAxisOptions[dsName] = columnMeta
+      .filter(col => {
+        const type = col.data_type.toLowerCase();
+        if (['bar', 'line'].includes(chartType)) {
+          return string.includes(type); // X-axis: string
+        } else if (chartType === 'pie') {
+          return string.includes(type); // X-axis: string
+        }
+        return true;
+      })
+      .map(col => col.column_name);
+
+    this.yAxisOptions[dsName] = columnMeta
+      .filter(col => {
+        const type = col.data_type.toLowerCase();
+        if (['bar', 'line'].includes(chartType)) {
+          return numeric.includes(type); // Y-axis: numeric
+        } else if (chartType === 'pie') {
+          return numeric.includes(type); // Y-axis: numeric
+        }
+        return true;
+      })
+      .map(col => col.column_name);
+
+    if (this.selectedColumns[dsName]) {
+      this.selectedColumns[dsName].x = undefined;
+      this.selectedColumns[dsName].y = undefined;
+    }
+  }
+  private charts: { [key: string]: Chart } = {};
+
+  generateChartData(dsName: string): void {
+    const selected = this.selectedColumns[dsName];
+    const table = this.selectedTables[dsName];
+    const chartType = this.selectedChartTypes[dsName];
+
+    if (!selected?.x || !selected?.y || !table) {
+      return;
+    }
+
+    const dbName = this.selectedProject;
+    const schemaName = dsName;
+    const tableName = table.name;
+    const xColumn = selected.x;
+    const yColumn = selected.y;
+
+    this.geoserverService.getChartData(dbName, schemaName, tableName, xColumn, yColumn).subscribe({
+      next: (response) => {
+        const labels = response.map(item => item[xColumn]);
+        const data = response.map(item => item[yColumn]);
+
+        const canvasId = `chartCanvas-${dsName}`;
+        const canvas: any = document.getElementById(canvasId);
+        const ctx = canvas?.getContext('2d');
+
+        if (ctx) {
+          // Destroy old chart if exists
+          if (this.charts[dsName]) {
+            this.charts[dsName].destroy();
+          }
+
+          // Cast chartJsType as keyof ChartTypeRegistry for type safety
+          const chartJsType = (chartType === 'column' ? 'bar' : chartType) as keyof ChartTypeRegistry;
+
+          this.charts[dsName] = new Chart(ctx, {
+            type: chartJsType,
+            data: {
+              labels,
+              datasets: [{
+                label: `${yColumn} vs ${xColumn}`,
+                data,
+                backgroundColor: [
+                  '#42A5F5', '#66BB6A', '#FFA726', '#AB47BC', '#FF7043',
+                ],
+              }],
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: `${chartType.toUpperCase()} Chart` },
+              }
+            }
+          });
+        }
+      },
+      error: (err) => {
+        console.error('Error loading chart data', err);
+      }
+    });
+  }
+
+  chartDataMap: { [dsName: string]: ChartConfiguration['data'] } = {};
+
+
+
+  onTableChange(schemaName: string, table: any) {
+    const tableName = typeof table === 'string' ? table : table?.name;
+    if (!tableName) return;
+
+    this.geoserverService.getColumnsByTable(this.selectedProject, schemaName, tableName)
+      .subscribe((columns: any[]) => {
+        const supportedTypes = [
+          ...this.dataTypeSupportChart.numeric,
+          ...this.dataTypeSupportChart.string
+        ];
+
+        const filtered = columns.filter(col =>
+          col.column_name && supportedTypes.includes(col.data_type.toLowerCase())
+        );
+
+        if (!this.columnsMap[schemaName]) {
+          this.columnsMap[schemaName] = {};
+        }
+
+        this.columnsMap[schemaName][tableName] = filtered;
+      });
+  }
 }

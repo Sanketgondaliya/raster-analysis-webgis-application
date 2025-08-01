@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from "@angular/common/http";
-import { catchError, Observable, throwError } from "rxjs";
+import { catchError, Observable, of, throwError } from "rxjs";
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -68,5 +68,33 @@ export class GeoserverService {
       })
     );
   }
+  // geoserver.service.ts
+  getColumnsByTable(dbName: string, schemaName: string, tableName: string): Observable<any> {
+    const payload = { dbName, schemaName, tableName };
+    const url = `${this.apiUrl}/get-columns`;
 
+    return this.http.post<any>(url, payload).pipe(
+      catchError((error) => {
+        console.error('Error fetching columns:', error);
+        return throwError(() => new Error('Failed to fetch columns.'));
+      })
+    );
+  }
+  getChartData(dbName: string, schemaName: string, tableName: string, xColumn: string, yColumn: string): Observable<any[]> {
+  const payload = {
+    dbName,
+    schemaName,
+    tableName,
+    xColumn,
+    yColumn
+  };
+  const url = `${this.apiUrl}/get-chart-data`;
+
+  return this.http.post<any[]>(url, payload).pipe(
+    catchError((error) => {
+      console.error('Error fetching chart data:', error);
+      return throwError(() => new Error('Failed to fetch chart data.'));
+    })
+  );
+}
 }

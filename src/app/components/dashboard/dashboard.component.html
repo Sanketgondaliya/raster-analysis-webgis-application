@@ -1,3 +1,66 @@
-<div class="card">
-  <p-chart type="bar" [data]="chartData" [options]="chartOptions" style="height:300px"></p-chart>
-</div>
+<p-tabs [(value)]="activeTabIndex">
+  <p-tablist>
+    <p-tab *ngFor="let ds of datastorelist; let i = index" [value]="i">
+      {{ ds.name }}
+    </p-tab>
+  </p-tablist>
+
+  <p-tabpanels>
+    <p-tabpanel *ngFor="let ds of datastorelist; let i = index" [value]="i">
+      <div class="grid mx-0">
+        <!-- Table Select -->
+        <div class="col-12">
+          <div class="field">
+            <label for="tableSelect{{ i }}">Select Table</label>
+            <p-select inputId="tableSelect{{ i }}" [options]="ds.tables" [(ngModel)]="selectedTables[ds.name]"
+              optionLabel="name" placeholder="Choose a Table"
+              (onChange)="handleTableSelect(ds.name); onTableChange(ds.name, selectedTables[ds.name])">
+            </p-select>
+
+          </div>
+        </div>
+
+        <!-- Chart Type Select -->
+        <div class="col-12">
+          <div class="field">
+            <label>Chart Type</label>
+            <p-select *ngIf="selectedTables[ds.name]" [options]="chartTypes" [(ngModel)]="selectedChartTypes[ds.name]"
+              (ngModelChange)="onChartTypeChange(ds.name)" optionLabel="label" optionValue="value"
+              placeholder="Select Chart Type">
+            </p-select>
+          </div>
+        </div>
+
+        <!-- X-Axis Select -->
+        <div class="col-12">
+          <div class="field">
+            <label>X-Axis Column</label>
+            <p-select *ngIf="selectedColumns[ds.name]" [options]="xAxisOptions[ds.name]"
+              [(ngModel)]="selectedColumns[ds.name].x" [disabled]="!selectedChartTypes[ds.name]"
+              placeholder="Select X Column">
+            </p-select>
+          </div>
+        </div>
+
+        <!-- Y-Axis Select -->
+        <div class="col-12">
+          <div class="field">
+            <label>Y-Axis Column</label>
+            <p-select *ngIf="selectedColumns[ds.name]" [options]="yAxisOptions[ds.name]"
+              [(ngModel)]="selectedColumns[ds.name].y" [disabled]="!selectedChartTypes[ds.name]"
+              placeholder="Select Y Column">
+            </p-select>
+          </div>
+        </div>
+        <!-- Fetch Chart Data Button -->
+        <div class="col-12 mt-2">
+          <button pButton type="button" label="Fetch Chart Data" icon="pi pi-chart-bar"
+            (click)="generateChartData(ds.name)">data
+          </button>
+        </div>
+
+        <canvas *ngIf="chartDataMap[ds.name]" id="chartCanvas-{{ ds.name }}"></canvas>
+      </div>
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>
