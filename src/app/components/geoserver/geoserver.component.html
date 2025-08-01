@@ -35,9 +35,10 @@
             <div class="col-12">
               <div class="field">
                 <label for="dbname">Database Name</label>
-                <input pInputText id="dbname" class="w-full" formControlName="dbName" />
+                <input pInputText id="dbname" class="w-full" formControlName="dbName" [disabled]="true" />
               </div>
             </div>
+
             <div class="col-12">
               <div class="field">
                 <label for="username">Username</label>
@@ -69,8 +70,8 @@
             <div class="field">
               <label for="project_select">Select Department</label>
               <p-select [options]="ProjectNameList" optionLabel="label" optionValue="value"
-                [(ngModel)]="selectedDataStore" (onChange)="onProjectSelectChange()" placeholder="Select Department Name"
-                class="w-full md:w-56 surface-border" />
+                [(ngModel)]="selectedDataStore" (onChange)="onProjectSelectChange()"
+                placeholder="Select Department Name" class="w-full md:w-56 surface-border" />
             </div>
           </div>
           <div class="col-12">

@@ -39,21 +39,24 @@
 
 
     <!-- Operational Tab -->
-    <p-tabpanel *ngIf="value === 1" [value]="1">
-      <p-accordion [multiple]="true">
-        <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
-          <p-accordion-header>{{ ds.name }}</p-accordion-header>
-          <p-accordion-content>
-            <div *ngFor="let table of ds.tables" class="flex align-items-center gap-2 ml-3 my-2">
-              <p-checkbox [binary]="true" [(ngModel)]="checkedTables[ds.name + '.' + table]"
-                (onChange)="onItemClick(table, ds.name)"
-                inputId="{{ ds.name + '_' + table }}">
-              </p-checkbox>
-              <label for="{{ ds.name + '_' + table }}">{{ table }}</label>
-            </div>
-          </p-accordion-content>
-        </p-accordion-panel>
-      </p-accordion>
-    </p-tabpanel>
+   <!-- Operational Tab -->
+<p-tabpanel *ngIf="value === 1" [value]="1">
+  <p-accordion [multiple]="true">
+    <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
+      <p-accordion-header>{{ ds.name }}</p-accordion-header>
+      <p-accordion-content>
+        <div *ngFor="let table of ds.tables" class="flex align-items-center gap-2 ml-3 my-2">
+          <p-checkbox [binary]="true"
+                      [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
+                      (onChange)="onItemClick(table.name, ds.name)"
+                      inputId="{{ ds.name + '_' + table.name }}">
+          </p-checkbox>
+          <label for="{{ ds.name + '_' + table.name }}">{{ table.name }}</label>
+        </div>
+      </p-accordion-content>
+    </p-accordion-panel>
+  </p-accordion>
+</p-tabpanel>
+
   </p-tabpanels>
 </p-tabs>

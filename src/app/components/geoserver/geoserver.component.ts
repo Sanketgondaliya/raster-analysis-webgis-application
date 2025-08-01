@@ -69,10 +69,11 @@ export class GeoserverComponent {
       datastorename: ['', Validators.required],
       dbHost: ['192.168.20.49', Validators.required],
       dbPort: ['5432', Validators.required],
-      dbName: ['gisdb', Validators.required],
+      dbName: [{ value: this.selectedProject, disabled: true }, Validators.required],  // disable here
       dbUser: ['postgres', Validators.required],
       dbPassword: ['postgres', Validators.required]
     });
+
   }
 
   getDatastoreList(): void {
