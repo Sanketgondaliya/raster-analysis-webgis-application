@@ -13,31 +13,40 @@ export class GeoserverService {
 
   // Existing methods
   geoserverProjectList(): Observable<any> {
-    return this.http.get<any>(
+    const config = JSON.parse(localStorage.getItem('geoserverConfig') || '{}');
+
+    return this.http.post<any>(
       `${this.apiUrl}/geoserver/workspaces`,
+      {
+        geoserverurl: config.geoserverurl,
+        username: config.geoserverUsername,
+        password: config.geoserverPassword
+      }
     );
   }
 
-  geoserverProject(payload: any): Observable<any> {
+
+  geoserverProjectCreate(payload: any): Observable<any> {
     return this.http.post<any>(
-      `${this.apiUrl}/geoserver/workspaces`,
+      `${this.apiUrl}/geoserver/createWorkspaces`,
       payload
     );
   }
 
-  geoserverDataStore(payload: any): Observable<any> {
+
+
+  geoserverDataStoreList(payload: any): Observable<any> {
     return this.http.post<any>(
-      `${this.apiUrl}/geoserver/datastores`,
+      `${this.apiUrl}/geoserver/getDatastoreList`,
       payload
     );
   }
-
-  geoserverDataStoreList(data: string): Observable<any> {
-    return this.http.get<any>(
-      `${this.apiUrl}/geoserver/workspaces/${data}/datastores`,
+  geoserverDataStoreCreate(payload: any): Observable<any> {
+    return this.http.post<any>(
+      `${this.apiUrl}/geoserver/createDatastore`,
+      payload
     );
   }
-
   geoserverLayerList(data: string): Observable<any> {
     return this.http.post<any>(
       `${this.apiUrl}/geoserver/workspaces/${data}/datastores`,
@@ -80,23 +89,23 @@ export class GeoserverService {
       })
     );
   }
-  getChartData(dbName: string, schemaName: string, tableName: string, xColumn: string, yColumn: string,chartType:string,analysisType:string): Observable<any[]> {
-  const payload = {
-    dbName,
-    schemaName,
-    tableName,
-    xColumn,
-    yColumn,
-    chartType,
-    analysisType
-  };
-  const url = `${this.apiUrl}/get-chart-data`;
+  getChartData(dbName: string, schemaName: string, tableName: string, xColumn: string, yColumn: string, chartType: string, analysisType: string): Observable<any[]> {
+    const payload = {
+      dbName,
+      schemaName,
+      tableName,
+      xColumn,
+      yColumn,
+      chartType,
+      analysisType
+    };
+    const url = `${this.apiUrl}/get-chart-data`;
 
-  return this.http.post<any[]>(url, payload).pipe(
-    catchError((error) => {
-      console.error('Error fetching chart data:', error);
-      return throwError(() => new Error('Failed to fetch chart data.'));
-    })
-  );
-}
+    return this.http.post<any[]>(url, payload).pipe(
+      catchError((error) => {
+        console.error('Error fetching chart data:', error);
+        return throwError(() => new Error('Failed to fetch chart data.'));
+      })
+    );
+  }
 }

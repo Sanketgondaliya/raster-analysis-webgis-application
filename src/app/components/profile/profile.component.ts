@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@
 import { InputTextModule } from 'primeng/inputtext';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Select } from "primeng/select";
-import { TextareaModule } from 'primeng/textarea';
 import { ButtonModule } from 'primeng/button';
 import { GeoserverService } from '../services/geoserver.service';
 import { ToastService } from '../services/toast.service';
@@ -16,21 +15,19 @@ import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-profile',
-  imports: [FormsModule, InputTextModule, Select, ReactiveFormsModule, ButtonModule, TextareaModule],
+  imports: [FormsModule, InputTextModule, Select, ReactiveFormsModule, ButtonModule],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.scss'
 })
 export class ProfileComponent implements OnInit {
   value: string | undefined;
-  ProjectForm!: FormGroup;
   selectedProject: string | null = null;
   ProjectNameList: { label: string; value: string }[] = [];
 
   constructor(private mapService: MapService, public applicationSettingService: ApplicationSettingService,
-    private fb: FormBuilder, private geoserverService: GeoserverService, private cdr: ChangeDetectorRef, private toastService: ToastService,private router: Router) { }
+    private fb: FormBuilder, private geoserverService: GeoserverService, private cdr: ChangeDetectorRef, private toastService: ToastService, private router: Router) { }
 
   ngOnInit(): void {
-    this.initForm();
     this.getProjectList();
 
     // Get stored value from localStorage and set selectedProject
@@ -41,13 +38,6 @@ export class ProfileComponent implements OnInit {
     }
   }
 
-  initForm() {
-    this.ProjectForm = this.fb.group({
-      selected_project: [null],
-      project_name: [null, Validators.required],
-      project_desc: [null],
-    });
-  }
 
   getProjectList() {
     this.geoserverService.geoserverProjectList().subscribe({
@@ -75,65 +65,27 @@ export class ProfileComponent implements OnInit {
 
 
   onProjectSelectChange(): void {
-  const selectedValue = this.selectedProject;
+    const selectedValue = this.selectedProject;
+    if (selectedValue) {
+      //localStorage.clear();
+      localStorage.setItem('selectedProject', selectedValue);
+      this.applicationSettingService.projectName = selectedValue;
 
-  if (selectedValue) {
-    localStorage.clear();
-    localStorage.setItem('selectedProject', selectedValue);
-    this.applicationSettingService.projectName = selectedValue;
-    this.ProjectForm.reset();
-
-    // Remove all WMS layers
-    const map = this.mapService.getMap();
-    map.getLayers().forEach((layer) => {
-      if (layer instanceof TileLayer || layer instanceof ImageLayer) {
-        const source = layer.getSource();
-        if (source instanceof TileWMS || source instanceof ImageWMS) {
-          map.removeLayer(layer);
+      // Remove all WMS layers
+      const map = this.mapService.getMap();
+      map.getLayers().forEach((layer) => {
+        if (layer instanceof TileLayer || layer instanceof ImageLayer) {
+          const source = layer.getSource();
+          if (source instanceof TileWMS || source instanceof ImageWMS) {
+            map.removeLayer(layer);
+          }
         }
-      }
-    });
+      });
 
-    // Force Angular to "reload" current route
-    this.router.navigateByUrl('/', { skipLocationChange: true }).then(() => {
-      this.router.navigate([this.router.url]);
-    });
+      // Force Angular to "reload" current route
+      this.router.navigateByUrl('/', { skipLocationChange: true }).then(() => {
+        this.router.navigate([this.router.url]);
+      });
+    }
   }
-}
-
-  onSubmit(event: Event): void {
-    event.preventDefault();
-
-    if (this.ProjectForm.invalid) return;
-
-    const formValue = this.ProjectForm.value;
-    const newProjectName = formValue.project_name;
-
-    const payload = {
-      workspaceName: newProjectName
-    };
-
-    this.geoserverService.geoserverProject(payload).subscribe({
-      next: (response) => {
-        // ✅ Show success
-        this.toastService.showSuccess(response.message || 'Project created successfully');
-
-        // ✅ Store in localStorage
-        localStorage.setItem('selectedProject', newProjectName ?? '');
-
-        // ✅ Refresh project list (optional)
-        this.getProjectList();
-
-        // ✅ Reset form
-        this.ProjectForm.reset();
-        this.cdr.detectChanges(); // Optional: force change detection if needed
-      },
-      error: (error) => {
-        this.toastService.showError(error || 'Project creation failed');
-        console.error("Error creating project:", error);
-      },
-    });
-  }
-
-
 }

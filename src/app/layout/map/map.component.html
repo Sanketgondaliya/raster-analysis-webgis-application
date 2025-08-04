@@ -1,3 +1,35 @@
 <div class="map-container">
   <div id="map" class="map"></div>
 </div>
+
+<div id="popup" class="ol-popup">
+  <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+  <div id="popup-content">
+    <p-tabs [(value)]="selectedTab" (valueChange)="onTabChange($event)">
+      <p-tablist>
+        <p-tab *ngFor="let tab of popupTabs" [value]="tab.title">
+          {{ tab.title }}
+        </p-tab>
+      </p-tablist>
+
+      <p-tabpanels>
+        <p-tabpanel *ngFor="let tab of popupTabs" [value]="tab.title">
+          <table class="feature-table">
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of tab.data | keyvalue">
+                <td>{{ row.key }}</td>
+                <td>{{ row.value }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </p-tabpanel>
+      </p-tabpanels>
+    </p-tabs>
+  </div>
+</div>

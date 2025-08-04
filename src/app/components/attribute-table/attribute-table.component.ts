@@ -79,8 +79,21 @@ export class AttributeTableComponent implements AfterViewInit, AfterViewChecked 
       this.toastService.showInfo('Please select a project first.');
       return;
     }
-
-    this.geoserverService.geoserverDataStoreList(this.selectedProject).subscribe({
+    const geoserverConfig = JSON.parse(localStorage.getItem('geoserverConfig') || '{}');
+    const databaseConfig = JSON.parse(localStorage.getItem('databaseConfig') || '{}');
+    this.toastService.showSuccess('Project Created!');
+    const ProjectPayload = {
+      projectName: this.selectedProject,
+      geoserverurl: geoserverConfig.geoserverurl,
+      username: geoserverConfig.geoserverUsername,
+      password: geoserverConfig.geoserverPassword,
+      host: databaseConfig.databaseHost,
+      port: databaseConfig.databasePort,
+      user: databaseConfig.databaseUsername,
+      dbpassword: databaseConfig.databasePassword,
+      database: databaseConfig.databaseDefaultDb
+    };
+    this.geoserverService.geoserverDataStoreList(ProjectPayload).subscribe({
       next: (response) => {
         const dataStores = response?.dataStores?.dataStore || [];
 

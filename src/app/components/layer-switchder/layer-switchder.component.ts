@@ -114,6 +114,9 @@ export class LayerSwitchderComponent {
   loadAllLayers(): void {
     if (!this.selectedProject) return;
 
+    const geoserverConfig = JSON.parse(localStorage.getItem('geoserverConfig') || '{}');
+    const geoserverUrl = geoserverConfig.geoserverurl || 'http://localhost:8080/geoserver/';
+
     for (const ds of this.datastorelist) {
       for (const table of ds.tables) {
         const key = `${ds.name}.${table.name}`;
@@ -123,7 +126,7 @@ export class LayerSwitchderComponent {
 
         const wmsLayer = new TileLayer({
           source: new TileWMS({
-            url: `http://192.168.20.49:8080/geoserver/${this.selectedProject}/wms`,
+            url: `${geoserverUrl}${this.selectedProject}/wms`,
             params: {
               'LAYERS': layerName,
               'TILED': true,
@@ -152,6 +155,7 @@ export class LayerSwitchderComponent {
   }
 
 
+
   onItemClick(tableName: string, datastoreName: string): void {
     const key = `${datastoreName}.${tableName}`;
     const tableInfo = this.checkedTables[key];
@@ -162,26 +166,38 @@ export class LayerSwitchderComponent {
       layer.setVisible(isChecked);
     }
 
-    // Save state to localStorage
     localStorage.setItem('checkedTables', JSON.stringify(this.checkedTables));
 
-    // Zoom to layer extent if checked and bbox exists
+    // Zoom to extent
     if (isChecked && tableInfo?.bbox) {
-      const extent4326 = [
-        tableInfo.bbox.minx,
-        tableInfo.bbox.miny,
-        tableInfo.bbox.maxx,
-        tableInfo.bbox.maxy
-      ];
+      const bbox = tableInfo.bbox;
 
-      const extent3857 = transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
+      // ✅ Safely extract CRS string
+      let sourceCRS: string;
+      if (typeof bbox.crs === 'string') {
+        sourceCRS = bbox.crs;
+      } else if (typeof bbox.crs === 'object' && typeof bbox.crs['$'] === 'string') {
+        sourceCRS = bbox.crs['$'];
+      } else {
+        console.warn('Invalid CRS format in bbox:', bbox.crs);
+        return;
+      }
 
-      this.map.getView().fit(extent3857, {
-        duration: 1000,
-        padding: [50, 50, 50, 50]
-      });
+      const extent = [bbox.minx, bbox.miny, bbox.maxx, bbox.maxy];
+
+      try {
+        const transformedExtent = transformExtent(extent, sourceCRS, 'EPSG:3857');
+
+        this.map.getView().fit(transformedExtent, {
+          duration: 1000,
+          padding: [50, 50, 50, 50]
+        });
+      } catch (error) {
+        console.error('Error transforming extent:', error);
+      }
     }
   }
+
 
 
   onBasemapChange(selected: string): void {

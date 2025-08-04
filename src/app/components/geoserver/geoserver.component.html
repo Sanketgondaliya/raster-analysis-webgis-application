@@ -7,97 +7,203 @@
 
   <p-tabpanels>
     <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value">
-      <!-- <p>{{ tab.label }}</p> -->
+
       <ng-container *ngIf="value === 1">
-        <form [formGroup]="datastoreForm" (ngSubmit)="onDatastoreSubmit()" class="p-fluid">
+        <form [formGroup]="geoserverConfig" (ngSubmit)="geoserverConfigSumit()" class="p-fluid">
           <div class="grid">
             <div class="col-12">
               <div class="field">
-                <label for="datastorename">Department Name</label>
-                <input pInputText id="department" class="w-full" formControlName="datastorename" />
+                <label for="geoserverurl">Geoserver URL</label>
+                <input pInputText id="geoserverurl" class="w-full" formControlName="geoserverurl"
+                  placeholder="http://localhost:8080/geoserver/" />
               </div>
             </div>
             <div class="col-12">
               <div class="field">
-                <label for="host">Database Host</label>
-                <input pInputText id="host" class="w-full" formControlName="dbHost" />
-              </div>
-
-            </div>
-            <div class="col-12">
-
-              <div class="field">
-                <label for="port">Port</label>
-                <input pInputText id="port" class="w-full" formControlName="dbPort" />
-              </div>
-
-            </div>
-            <div class="col-12">
-              <div class="field">
-                <label for="dbname">Database Name</label>
-                <input pInputText id="dbname" class="w-full" formControlName="dbName" [disabled]="true" />
-              </div>
-            </div>
-
-            <div class="col-12">
-              <div class="field">
-                <label for="username">Username</label>
-                <input pInputText id="username" class="w-full" formControlName="dbUser" />
+                <label for="geoserverUsername">Geoserver Username</label>
+                <input pInputText id="geoserverUsername" class="w-full" formControlName="geoserverUsername"
+                  placeholder="admin" />
               </div>
             </div>
             <div class="col-12">
               <div class="field">
-                <label for="password">Password</label>
-                <input pPassword id="password" class="w-full" type="password" formControlName="dbPassword" toggleMask />
+                <label for="geoserverPassword">Geoserver Password</label>
+                <input pInputText id="geoserverPassword" class="w-full" formControlName="geoserverPassword"
+                  placeholder="geoserver" />
               </div>
             </div>
-            <div class="col-12">
-              <div class="field mt-2" style="display: flex; gap: 0.5rem;">
-                <button pButton type="submit" label="Submit" class="p-button-success w-full" style="flex: 1;"></button>
+            <div class="col-12" style="display: flex; gap: 0.5rem;">
+              <button pButton type="submit" label="Submit" class="p-button-success w-full" style="flex: 1;"
+                [disabled]="geoserverConfig.invalid"></button>
 
-                <button pButton type="button" label="Clear" (click)="clearForm()" class="p-button-secondary w-full"
-                  style="flex: 1;"></button>
-              </div>
+              <button pButton type="button" label="Clear" (click)="clearDatabaseForm()"
+                class="p-button-secondary w-full" style="flex: 1;"></button>
             </div>
-
           </div>
         </form>
       </ng-container>
 
       <ng-container *ngIf="value === 2">
-        <div class="grid mx-0">
-          <div class="col-12">
-            <div class="field">
-              <label for="project_select">Select Department</label>
-              <p-select [options]="ProjectNameList" optionLabel="label" optionValue="value"
-                [(ngModel)]="selectedDataStore" (onChange)="onProjectSelectChange()"
-                placeholder="Select Department Name" class="w-full md:w-56 surface-border" />
+        <form [formGroup]="databaseConfig" (ngSubmit)="databaseConfigSubmit()" class="p-fluid">
+          <div class="grid">
+            <div class="col-12">
+              <div class="field">
+                <label for="databaseHost">Database Host</label>
+                <input pInputText id="databaseHost" class="w-full" formControlName="databaseHost"
+                  placeholder="localhost" />
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="databasePort">Database Port</label>
+                <input pInputText id="databasePort" class="w-full" formControlName="databasePort" placeholder="5432" />
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="databaseUsername">Database Username</label>
+                <input pInputText id="databaseUsername" class="w-full" formControlName="databaseUsername"
+                  placeholder="postgres" />
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="databaseDefaultDb">Default Database</label>
+                <input pInputText id="databaseDefaultDb" class="w-full" formControlName="databaseDefaultDb"
+                  placeholder="postgres" />
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="databasePassword">Database Password</label>
+                <input pInputText id="databasePassword" class="w-full" formControlName="databasePassword"
+                  placeholder="your_password" />
+              </div>
+            </div>
+            <div class="col-12" style="display: flex; gap: 0.5rem;">
+              <button pButton type="submit" label="Submit" class="p-button-success w-full" style="flex: 1;"
+                [disabled]="databaseConfig.invalid"></button>
+              <button pButton type="button" label="Clear" (click)="clearDatabaseForm()"
+                class="p-button-secondary w-full" style="flex: 1;"></button>
             </div>
           </div>
-          <div class="col-12">
-            <div class="field">
-              <label for="project_select">Layer Name</label>
-              <input pInputText id="layername" class="w-full" [(ngModel)]="layername" name="layername" />
+        </form>
+      </ng-container>
+
+      <ng-container *ngIf="value === 3">
+        <form [formGroup]="projectSetup" (ngSubmit)="onProjectSubmit()" class="p-fluid">
+          <div class="grid">
+            <div class="col-12">
+              <div class="field">
+                <label for="projectName">Project Name</label>
+                <input pInputText id="projectName" class="w-full" formControlName="projectName"
+                  placeholder="Enter project name (letters and numbers only)" />
+                <small class="p-error"
+                  *ngIf="projectSetup.get('projectName')?.hasError('invalidProjectName') && projectSetup.get('projectName')?.touched">
+                  Project name must contain only letters and numbers (no spaces or special characters).
+                </small>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="projectDescription">Project Description</label>
+                <input pInputText id="projectDescription" class="w-full" formControlName="projectDescription"
+                  placeholder="Optional description" />
+              </div>
+            </div>
+            <div class="col-12" style="display: flex; gap: 0.5rem;">
+              <button pButton type="submit" label="Submit" class="p-button-success w-full" style="flex: 1;"
+                [disabled]="projectSetup.invalid"></button>
+              <button pButton type="button" label="Clear" (click)="clearProjectForm()" class="p-button-secondary w-full"
+                style="flex: 1;"></button>
             </div>
           </div>
-        </div>
-        <div class="p-fluid">
-          <div class="field mb-3">
-            <label for="fileUpload">Upload Layer File</label>
-            <p-fileUpload name="layerFile" accept=".zip,.shp,.geojson" mode="basic" [auto]="false"
-              (onSelect)="onFileSelect($event)" [customUpload]="true" (uploadHandler)="onCustomUpload($event)"
-              [showUploadButton]="false" [showCancelButton]="false" chooseLabel="Choose File" [maxFileSize]="5000000">
-            </p-fileUpload>
-          </div>
-          <div class="field mt-2" style="display: flex; gap: 0.5rem;">
-            <button pButton type="button" label="Save" (click)="onSaveFileUpload()" class="p-button-success w-full"
-              style="flex: 1;"></button>
+        </form>
+      </ng-container>
 
-            <button pButton type="button" label="Clear" (click)="clearForm()" class="p-button-secondary w-full"
-              style="flex: 1;"></button>
+      <ng-container *ngIf="value === 4">
+        <form [formGroup]="departmentSetup" (ngSubmit)="onDatastoreSubmit()" class="p-fluid">
+          <div class="grid">
+            <div class="col-12">
+              <div class="field">
+                <label for="project_select">Project Name</label>
+                <p-select [options]="ProjectNameList" optionLabel="label" optionValue="value"
+                  formControlName="selectedProject" placeholder="Select Project Name"
+                  class="w-full md:w-56 surface-border">
+                </p-select>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="datastorename">Department Name</label>
+                <input pInputText id="datastorename" class="w-full" formControlName="datastorename"
+                  placeholder="Enter department name (letters, numbers, - or _ only)" />
+                <small class="p-error"
+                  *ngIf="departmentSetup.get('datastorename')?.hasError('invalidName') && departmentSetup.get('datastorename')?.touched">
+                  Department name must contain only letters, numbers, - or _ (no spaces or special characters).
+                </small>
+              </div>
+            </div>
+            <div class="col-12" style="display: flex; gap: 0.5rem;">
+              <button pButton type="submit" label="Submit" class="p-button-success w-full" style="flex: 1;"
+                [disabled]="departmentSetup.invalid"></button>
+              <button pButton type="button" label="Clear" (click)="clearDepartmentrForm()"
+                class="p-button-secondary w-full" style="flex: 1;"></button>
+            </div>
           </div>
+        </form>
+      </ng-container>
 
-        </div>
+      <ng-container *ngIf="value === 5">
+        <form [formGroup]="publishLayerForm" (ngSubmit)="onSaveFileUpload()" class="p-fluid">
+          <div class="grid mx-0">
+            <div class="col-12">
+              <div class="field">
+                <label for="project_select">Project Select</label>
+                <p-select [options]="ProjectNameList" optionLabel="label" optionValue="value"
+                  formControlName="selectedProject" placeholder="Select Project Name"
+                  class="w-full md:w-56 surface-border" (onChange)="onProjectChange($event)">
+                </p-select>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="department_select">Select Department</label>
+                <p-select [options]="DepartmentList" optionLabel="label" optionValue="value"
+                  formControlName="selectedDataStore" placeholder="Select Department Name"
+                  class="w-full md:w-56 surface-border">
+                </p-select>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="layername">Layer Name</label>
+                <input pInputText id="layername" class="w-full" formControlName="layername"
+                  placeholder="Enter layer name (letters, numbers, - or _ only)" />
+                <small class="p-error"
+                  *ngIf="publishLayerForm.get('layername')?.hasError('invalidName') && publishLayerForm.get('layername')?.touched">
+                  Layer name must contain only letters, numbers, - or _ (no spaces or special characters).
+                </small>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field">
+                <label for="fileUpload">Upload Layer File</label>
+                <p-fileUpload name="layerFile" accept=".zip,.shp,.geojson" mode="basic" [auto]="false"
+                  (onSelect)="onFileSelect($event)" [customUpload]="true" (uploadHandler)="onCustomUpload($event)"
+                  [showUploadButton]="false" [showCancelButton]="false" chooseLabel="Choose File"
+                  [maxFileSize]="5000000">
+                </p-fileUpload>
+              </div>
+            </div>
+            <div class="col-12" style="display: flex; gap: 0.5rem;">
+              <button pButton type="submit" label="Save" class="p-button-success w-full" style="flex: 1;"
+                [disabled]="publishLayerForm.invalid"></button>
+              <button pButton type="button" label="Clear" (click)="clearForm()" class="p-button-secondary w-full"
+                style="flex: 1;"></button>
+            </div>
+          </div>
+        </form>
       </ng-container>
     </p-tabpanel>
   </p-tabpanels>

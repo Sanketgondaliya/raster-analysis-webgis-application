@@ -11,6 +11,6 @@ export const routes: Routes = [
   { path: 'attribute-table', component: AttributeTableComponent },
   { path: 'query-module', component: QueryModuleComponent },
   { path: 'dashboard', component: DashboardComponent },
-  { path: 'geoserver', component: GeoserverComponent },
+  { path: 'appconfig', component: GeoserverComponent },
   { path: '**', redirectTo: 'layer-switcher' }
 ];

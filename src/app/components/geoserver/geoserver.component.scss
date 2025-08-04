@@ -20,3 +20,13 @@
     margin-top: 0.25rem;
     display: block;
 }
+:host ::ng-deep .p-tabpanel {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+:host ::ng-deep .p-tabview-panels,
+:host ::ng-deep .p-tabpanel-content {
+  height: 100%;
+  overflow-y: auto;
+}

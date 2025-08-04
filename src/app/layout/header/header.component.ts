@@ -46,7 +46,8 @@ export class HeaderComponent {
     { label: 'Dashboard', path: 'dashboard' },
     { label: 'Attribute Table', path: 'attribute-table' },
     { label: 'Query Module', path: 'query-module' },
-    { label: 'Geoserver', path: 'geoserver' }
+    { label: 'App-Configuration', path: 'appconfig' }
+
   ];
 
   isActive(path: string): boolean {

@@ -9,7 +9,12 @@ const path = require('path');
 const AdmZip = require('adm-zip');
 const { exec } = require('child_process');
 const { Client } = require('pg');
+const os = require('os');
+const isWindows = os.platform() === 'win32';
 
+const ogr2ogrPath = isWindows
+	? `"C:\\Program Files\\QGIS 3.32.1\\bin\\ogr2ogr.exe"` // Windows path
+	: `ogr2ogr`; // Assume installed in PATH on Ubuntu
 // Configure multer for file uploads with limits
 const upload = multer({
 	dest: 'uploads/',
@@ -18,10 +23,8 @@ const upload = multer({
 		files: 1
 	}
 });
-
 const app = express();
 const port = 3000;
-
 // Middleware
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cors());
@@ -29,14 +32,6 @@ app.use((req, res, next) => {
 	console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
 	next();
 });
-
-const pgAdminConfig = {
-	host: '192.168.20.49',
-	port: 5432,
-	user: 'postgres',      // superuser or a user with CREATE DATABASE and CREATE EXTENSION privileges
-	password: 'postgres',
-	database: 'postgres'   // connect to default db to create new databases
-};
 // Error handling middleware
 app.use((err, req, res, next) => {
 	console.error('Unhandled error:', err);
@@ -45,22 +40,15 @@ app.use((err, req, res, next) => {
 		details: err.message
 	});
 });
-
 // GeoServer configuration
-const GEOSERVER_URL = 'http://192.168.20.49:8080/geoserver/rest';
-const GEOSERVER_CREDENTIALS = {
-	username: 'admin',
-	password: 'geoserver'
-};
-const GEOSERVER_TIMEOUT = 10000; // 10 seconds
-
-
+const GEOSERVER_URL = 'http://localhost:8080/geoserver/rest';
 // Helper function to make authenticated requests to GeoServer with timeout
-async function makeGeoserverRequest(url, method = 'GET', body = null) {
-	const auth = Buffer.from(`${GEOSERVER_CREDENTIALS.username}:${GEOSERVER_CREDENTIALS.password}`).toString('base64');
+async function makeGeoserverRequest(endpoint, method = 'GET', body = null, config) {
+	const { geoserverurl, username, password } = config;
+	const auth = Buffer.from(`${username}:${password}`).toString('base64');
 
 	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), GEOSERVER_TIMEOUT);
+	const timeout = setTimeout(() => controller.abort(), 10000);
 
 	try {
 		const options = {
@@ -72,11 +60,10 @@ async function makeGeoserverRequest(url, method = 'GET', body = null) {
 			signal: controller.signal
 		};
 
-		if (body) {
-			options.body = JSON.stringify(body);
-		}
+		if (body) options.body = JSON.stringify(body);
 
-		const response = await fetch(`${GEOSERVER_URL}${url}`, options);
+		const baseUrl = geoserverurl.replace(/\/$/, ''); // remove trailing slash
+		const response = await fetch(`${baseUrl}/rest${endpoint}`, options);
 
 		if (!response.ok) {
 			const errorText = await response.text();
@@ -88,25 +75,41 @@ async function makeGeoserverRequest(url, method = 'GET', body = null) {
 		clearTimeout(timeout);
 	}
 }
-
-
 // =========================================
-// GET /api/geoserver/workspaces
+// POST /api/geoserver/workspaces
 // Description: Fetches a list of all workspaces from GeoServer
-// Usage: Called by frontend or clients to display available workspaces
+// Usage: Called by frontend clients (Angular) to dynamically list available workspaces (projects).
+// Request Body Example:
+// {
+//   "geoserverurl": "http://localhost:8080/geoserver/",
+//   "username": "admin",
+//   "password": "geoserver"
+// }
 // =========================================
-app.get('/api/geoserver/workspaces', async (req, res) => {
+app.post('/api/geoserver/workspaces', async (req, res) => {
 	try {
-		// Make a GET request to GeoServer's REST API for all workspaces
-		const response = await makeGeoserverRequest('/workspaces.json');
+		// Destructure geoserver config from request body
+		const { geoserverurl, username, password } = req.body;
 
-		// Parse the JSON response
+		// Validate presence of required fields
+		if (!geoserverurl || !username || !password) {
+			return res.status(400).json({ error: 'Missing GeoServer configuration.' });
+		}
+
+		// Make authenticated request to GeoServer to get workspace list
+		const response = await makeGeoserverRequest('/workspaces.json', 'GET', null, {
+			geoserverurl,
+			username,
+			password
+		});
+
+		// Parse the response from GeoServer
 		const data = await response.json();
 
-		// Send the workspace data to the client
+		// Send the workspace list back to the frontend
 		res.json(data);
 	} catch (error) {
-		// Log and return an error if the request fails
+		// Log any errors and respond with a 500 status
 		console.error('Error fetching workspaces:', error);
 		res.status(500).json({
 			error: 'Failed to fetch workspaces',
@@ -114,39 +117,43 @@ app.get('/api/geoserver/workspaces', async (req, res) => {
 		});
 	}
 });
-
 // ===============================================================
-// POST /api/geoserver/workspaces
-// Description: Creates a new workspace in GeoServer and a corresponding PostgreSQL database
-//              with the PostGIS extension enabled.
-// Expected body: { workspaceName: "your_workspace_name" }
-// Notes:
-//   - Workspace name must be alphanumeric (letters, numbers, underscores only)
-//   - GeoServer will reject names with invalid characters
-//   - PostgreSQL database will be created with the same name as the workspace (lowercase)
-//   - PostGIS extension is enabled in the created database
+// POST /api/geoserver/createWorkspaces
+// Description:
+//   - Creates a new GeoServer workspace using client-provided credentials
+//   - Creates a PostgreSQL database with PostGIS enabled using client-provided DB config
 // ===============================================================
-
-app.post('/api/geoserver/workspaces', async (req, res) => {
+app.post('/api/geoserver/createWorkspaces', async (req, res) => {
 	try {
-		debugger
-		// Extract workspaceName from the request body
-		const { workspaceName } = req.body;
+		// Destructure the entire payload sent from client
+		const {
+			geoserverurl,
+			username,
+			password,
+			workspaceName,
+			host,
+			port,
+			user,
+			dbpassword,
+			database
+		} = req.body;
 
-		// Validate workspace name format: only letters, numbers, and underscores are allowed
+		// Validate workspace name
 		if (!workspaceName || !/^[a-zA-Z0-9_]+$/.test(workspaceName)) {
 			return res.status(400).json({
 				error: 'Invalid workspace name. Only alphanumeric and underscore characters are allowed.'
 			});
 		}
 
-		// Prepare payload to create workspace in GeoServer
+		// 1. Create GeoServer workspace
 		const requestBody = { workspace: { name: workspaceName } };
 
-		// Send POST request to GeoServer to create the workspace
-		const geoResponse = await makeGeoserverRequest('/workspaces', 'POST', requestBody);
+		const geoResponse = await makeGeoserverRequest('/workspaces', 'POST', requestBody, {
+			geoserverurl,
+			username,
+			password
+		});
 
-		// If GeoServer did not return 201 Created, send back the error response
 		if (geoResponse.status !== 201) {
 			const errorText = await geoResponse.text();
 			return res.status(geoResponse.status).json({
@@ -155,124 +162,140 @@ app.post('/api/geoserver/workspaces', async (req, res) => {
 			});
 		}
 
-		// Create a new PostgreSQL client connected to the default database (usually 'postgres')
-		const client = new Client(pgAdminConfig);
+		// 2. Connect to the default DB to create a new DB with PostGIS
+		const client = new Client({
+			host,
+			port,
+			user,
+			password: dbpassword,
+			database // usually 'postgres'
+		});
+
 		await client.connect();
 
-		// Use lowercase workspace name as database name (PostgreSQL usually prefers lowercase)
+		// Use lowercase workspace name for database name
 		const dbName = workspaceName.toLowerCase();
 
 		try {
-			// 1. Create a new database with the name equal to the workspace name
+			// Create the new database
 			const createDbQuery = `CREATE DATABASE "${dbName}"`;
 			await client.query(createDbQuery);
 
-			// Close connection to the default database before connecting to the new one
+			// Close connection to default DB
 			await client.end();
 
-			// 2. Connect to the newly created database to enable the PostGIS extension
-			const newDbClient = new Client({ ...pgAdminConfig, database: dbName });
+			// Connect to new DB to enable PostGIS
+			const newDbClient = new Client({
+				host,
+				port,
+				user,
+				password: dbpassword,
+				database: dbName
+			});
+
 			await newDbClient.connect();
 
-			// Enable the PostGIS extension in the new database (if not already enabled)
+			// Enable PostGIS extension
 			await newDbClient.query(`CREATE EXTENSION IF NOT EXISTS postgis;`);
 
-			// Close connection to the new database
 			await newDbClient.end();
 
-			// Respond with success message after both workspace and database creation succeed
 			return res.status(201).json({
 				success: true,
 				message: `Workspace and database '${dbName}' created successfully with PostGIS extension`
 			});
 		} catch (dbError) {
-			// If creating the database or enabling PostGIS fails, close the client connection and respond with error
 			await client.end();
 			return res.status(500).json({
 				success: false,
-				message: `Workspace created but failed to create database or enable PostGIS: ${dbError.message}`,
-				suggestion: 'Check PostgreSQL permissions and ensure the database does not already exist'
+				message: `Workspace created but failed to create DB or enable PostGIS: ${dbError.message}`,
+				suggestion: 'Check DB permissions and if the DB already exists'
 			});
 		}
-
 	} catch (error) {
-		// Catch-all error handler for unexpected failures (GeoServer or PostgreSQL connectivity)
 		res.status(500).json({
 			success: false,
 			message: error.message,
-			suggestion: 'Check if workspace already exists or if GeoServer/PostgreSQL are running and accessible'
+			suggestion: 'Ensure GeoServer/PostgreSQL are accessible, and the workspace does not already exist'
 		});
 	}
 });
 
-
-
 // ===============================================================
-// GET /api/geoserver/workspaces/:workspace/datastores
-// Description: Fetches all datastores within a specified workspace from GeoServer
-// Route Params:
-//   - workspace: Name of the workspace to retrieve datastores from
+// POST /api/geoserver/getDatastoreList
+// Description:
+//   Fetches all datastores in the given workspace using provided GeoServer config
+// Request Body:
+//   {
+//     projectName: "workspace_name",
+//     geoserverurl: "...",
+//     username: "...",
+//     password: "..."
+//   }
 // ===============================================================
-app.get('/api/geoserver/workspaces/:workspace/datastores', async (req, res) => {
+app.post('/api/geoserver/getDatastoreList', async (req, res) => {
 	try {
-		// Extract the workspace name from the URL parameters
-		const { workspace } = req.params;
-
-		// Make a request to GeoServer to get datastores for the specified workspace
-		const response = await makeGeoserverRequest(`/workspaces/${workspace}/datastores.json`);
-
-		// Parse the response JSON from GeoServer
+		const { projectName, geoserverurl, username, password } = req.body;
+		if (!projectName || !geoserverurl || !username || !password) {
+			return res.status(400).json({ error: 'Missing required GeoServer configuration or project name' });
+		}
+		// Call GeoServer REST API to get datastores for the workspace
+		const response = await makeGeoserverRequest(`/workspaces/${projectName}/datastores.json`, 'GET', null, {
+			geoserverurl,
+			username,
+			password
+		});
 		const data = await response.json();
-
-		// Send the retrieved datastores data back to the client
 		res.json(data);
 	} catch (error) {
-		// Log the error to the server console for debugging
 		console.error('Error fetching datastores:', error);
-
-		// Send a 500 Internal Server Error response with error details
 		res.status(500).json({
 			error: 'Failed to fetch datastores',
 			details: error.message
 		});
 	}
 });
-
-
 // ===============================================================
-// POST /api/geoserver/datastores
-// Description: Creates a new datastore in a specified GeoServer workspace,
-//              connecting to a PostGIS database. Creates schema named after
-//              datastoreName inside the database named workspaceName.
-// Request Body Parameters:
-//   - workspaceName: Name of the workspace (and the database)
-//   - datastoreName: Name of the datastore (and schema)
-//   - dbHost: Hostname or IP of the PostgreSQL/PostGIS server
-//   - dbPort: Port number of the database server (default 5432)
-//   - dbUser: Database user with access rights
-//   - dbPassword: Password for the database user
+// POST /api/geoserver/createDatastore
+// Description:
+//   - Creates a PostgreSQL schema inside a database named after workspaceName
+//   - Registers a datastore in GeoServer using the schema
+// Required Request Body:
+//   {
+//     workspaceName: "workspace",
+//     datastoreName: "schema",
+//     dbHost: "localhost",
+//     dbPort: 5432,
+//     dbUser: "postgres",
+//     dbPassword: "password",
+//     geoserverurl: "http://localhost:8080/geoserver",
+//     username: "admin",
+//     password: "geoserver"
+//   }
 // ===============================================================
-
-app.post('/api/geoserver/datastores', async (req, res) => {
+app.post('/api/geoserver/createDatastore', async (req, res) => {
+	debugger
 	try {
 		const {
 			workspaceName,
 			datastoreName,
 			dbHost,
-			dbPort = 5432,
+			dbPort,
 			dbUser,
-			dbPassword
+			dbPassword,
+			geoserverurl,
+			username,
+			password
 		} = req.body;
 
-		// Validate required parameters
-		if (!workspaceName || !datastoreName || !dbHost || !dbUser) {
+		if (!workspaceName || !datastoreName || !dbHost || !dbUser || !geoserverurl || !username || !password) {
 			return res.status(400).json({ error: 'Missing required parameters' });
 		}
 
-		const dbName = workspaceName.toLowerCase();
+		const dbName = workspaceName.toLowerCase();  // Use workspaceName as DB name
 		const schemaName = datastoreName;
 
-		// Connect to the database named after workspaceName
+		// Connect to the target DB
 		const client = new Client({
 			host: dbHost,
 			port: dbPort,
@@ -284,32 +307,30 @@ app.post('/api/geoserver/datastores', async (req, res) => {
 		await client.connect();
 
 		try {
-			// Create schema named after datastoreName if not exists
-			const createSchemaQuery = `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`;
-			await client.query(createSchemaQuery);
+			// Create schema if it doesn't exist
+			await client.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
 		} catch (dbError) {
 			await client.end();
 			return res.status(500).json({
 				success: false,
-				message: `Failed to create schema '${schemaName}': ${dbError.message}`,
-				suggestion: 'Check PostgreSQL permissions for the user'
+				message: `Failed to create schema '${schemaName}': ${dbError.message}`
 			});
 		}
 
 		await client.end();
 
-		// Prepare GeoServer datastore config with schema and database info
+		// Construct datastore config for GeoServer
 		const datastoreConfig = {
 			dataStore: {
 				name: datastoreName,
 				enabled: true,
 				connectionParameters: {
+					dbtype: 'postgis',
 					host: dbHost,
 					port: dbPort,
 					database: dbName,
 					user: dbUser,
 					passwd: dbPassword,
-					dbtype: 'postgis',
 					schema: schemaName,
 					validateConnections: true,
 					maxConnections: 10,
@@ -322,7 +343,8 @@ app.post('/api/geoserver/datastores', async (req, res) => {
 		const response = await makeGeoserverRequest(
 			`/workspaces/${workspaceName}/datastores`,
 			'POST',
-			datastoreConfig
+			datastoreConfig,
+			{ geoserverurl, username, password }
 		);
 
 		if (response.status === 201) {
@@ -335,10 +357,11 @@ app.post('/api/geoserver/datastores', async (req, res) => {
 		res.status(500).json({
 			success: false,
 			message: error.message,
-			suggestion: 'Check connection parameters and verify PostgreSQL is accessible from GeoServer'
+			suggestion: 'Check connection parameters and verify PostgreSQL & GeoServer accessibility'
 		});
 	}
 });
+
 
 
 // ===============================================================
@@ -355,26 +378,35 @@ app.post('/api/geoserver/datastores', async (req, res) => {
 //   - srid: Optional spatial reference ID, default '4326'
 // ===============================================================
 app.post('/api/import/publish-shp', upload.single('file'), async (req, res) => {
-	debugger
 	let filePath;
 	let extractDir = null;
 	let shapefilePath = null;
 
 	try {
-		const { workspace, datastore, layerName, srid = '4326' } = req.body;
+		const {
+			workspace,
+			datastore,
+			layerName,
+			srid = '4326',
+			dbHost,
+			dbPort = '5432',
+			dbUser,
+			dbPassword,
+			geoserverurl,
+			username,
+			password
+		} = req.body;
+
 		const file = req.file;
 
-		// Validate inputs
-		if (!file) return res.status(400).json({ error: 'No file uploaded' });
-		if (!workspace || !datastore) return res.status(400).json({ error: 'Workspace and datastore are required' });
+		if (!file || !workspace || !datastore || !dbHost || !dbUser || !dbPassword || !geoserverurl || !username || !password) {
+			return res.status(400).json({ error: 'Missing required parameters or file.' });
+		}
 
 		filePath = file.path;
 		const originalName = path.basename(file.originalname);
-
-		// Table name rules: lowercase, starts with 'tbl_'
-		const baseLayerName = (layerName || originalName.replace(/\.[^/.]+$/, "")).toLowerCase();
+		const baseLayerName = (layerName || originalName.replace(/\.[^/.]+$/, '')).toLowerCase();
 		const tableName = baseLayerName.startsWith('tbl_') ? baseLayerName : `tbl_${baseLayerName}`;
-
 		const extension = path.extname(file.originalname).toLowerCase();
 
 		if (extension === '.zip') {
@@ -392,139 +424,102 @@ app.post('/api/import/publish-shp', upload.single('file'), async (req, res) => {
 			throw new Error('Only SHP or ZIP files containing SHP are supported');
 		}
 
-		// Validate companion files
-		if (!fs.existsSync(shapefilePath)) throw new Error(`Shapefile not found at: ${shapefilePath}`);
 		const basePath = shapefilePath.replace(/\.shp$/i, '');
 		for (const ext of ['.shx', '.dbf']) {
-			if (!fs.existsSync(`${basePath}${ext}`)) throw new Error(`Missing companion file: ${basePath}${ext}`);
+			if (!fs.existsSync(`${basePath}${ext}`)) {
+				throw new Error(`Missing companion file: ${basePath}${ext}`);
+			}
 		}
 
-		// Construct ogr2ogr command to import shapefile into specified db/schema/table
-		// Note: -nln "schema.table" specifies schema and table name for import
-		const ogrCommand = `ogr2ogr -f "PostgreSQL" PG:"host=192.168.20.49 user=postgres dbname=${workspace} password=postgres" "${shapefilePath}" -nln "${datastore}.${tableName}" -t_srs EPSG:${srid} -lco GEOMETRY_NAME=geom -lco FID=gid -nlt PROMOTE_TO_MULTI -overwrite`;
-
-		console.log(`Executing ogr2ogr command: ${ogrCommand}`);
+		const ogrCommand = `${ogr2ogrPath} -f "PostgreSQL" PG:"host=${dbHost} port=${dbPort} user=${dbUser} dbname=${workspace} password=${dbPassword}" "${shapefilePath}" -nln "${datastore}.${tableName}" -t_srs EPSG:${srid} -lco GEOMETRY_NAME=geom -lco FID=gid -nlt PROMOTE_TO_MULTI -overwrite`;
+		console.log(`Executing ogr2ogr command:\n${ogrCommand}`);
 
 		await new Promise((resolve, reject) => {
-			const child = exec(ogrCommand, { timeout: 300000 }, (error, stdout, stderr) => {
+			exec(ogrCommand, { timeout: 300000 }, (error, stdout, stderr) => {
 				if (error) {
-					console.error('ogr2ogr error:', error);
-					console.error('stderr:', stderr);
+					console.error('ogr2ogr error:', stderr || error.message);
 					return reject(new Error(`Failed to import shapefile: ${stderr || error.message}`));
 				}
-				console.log('ogr2ogr output:', stdout);
+				console.log(stdout);
 				resolve();
-			});
-			child.on('exit', (code, signal) => {
-				console.log(`ogr2ogr process exited with code ${code}, signal ${signal}`);
 			});
 		});
 
-		console.log('Shapefile imported to database successfully');
+		console.log('Shapefile imported to database successfully.');
 
-		// Publish layer on GeoServer
-		// Compose full layer name as "workspace:tableName"
-		try {
-			await makeGeoserverRequest('/about/version.json');
-
-			const featureTypeUrl = `/workspaces/${workspace}/datastores/${datastore}/featuretypes/${tableName}.json`;
-
-			try {
-				// Check if layer exists
-				await makeGeoserverRequest(featureTypeUrl);
-
-				// Update existing layer
-				await makeGeoserverRequest(
-					featureTypeUrl,
-					'PUT',
-					{
-						featureType: {
-							name: tableName,
-							nativeName: tableName,
-							title: tableName,
-							srs: `EPSG:${srid}`,
-							enabled: true,
-							store: {
-								name: datastore,
-								href: `${GEOSERVER_URL}/workspaces/${workspace}/datastores/${datastore}.json`
-							}
-						}
-					}
-				);
-			} catch (existsError) {
-				if (existsError.message.includes('404')) {
-					// Create new layer
-					await makeGeoserverRequest(
-						`/workspaces/${workspace}/datastores/${datastore}/featuretypes.json`,
-						'POST',
-						{
-							featureType: {
-								name: tableName,
-								nativeName: tableName,
-								title: tableName,
-								srs: `EPSG:${srid}`,
-								enabled: true,
-								store: {
-									name: datastore,
-									href: `${GEOSERVER_URL}/workspaces/${workspace}/datastores/${datastore}.json`
-								}
-							}
-						}
-					);
-				} else {
-					throw existsError;
+		const auth = Buffer.from(`${username}:${password}`).toString('base64');
+		const requestGeoServer = async (endpoint, method = 'GET', body = null) => {
+			const url = `${geoserverurl.replace(/\/+$/, '')}/rest${endpoint}`;
+			const options = {
+				method,
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Basic ${auth}`
 				}
+			};
+			if (body) options.body = JSON.stringify(body);
+			const response = await fetch(url, options);
+			const text = await response.text();
+			if (!response.ok) {
+				throw new Error(`GeoServer error [${response.status}]: ${text}`);
 			}
+			return text;
+		};
 
-			res.json({
-				success: true,
-				message: 'Shapefile imported and published successfully',
-				layerName: `${workspace}:${tableName}`,
-				previewUrl: `${GEOSERVER_URL}/${workspace}/wms?service=WMS&version=1.1.0&request=GetMap&layers=${workspace}:${tableName}&styles=&bbox=-180,-90,180,90&width=800&height=600&srs=EPSG:4326&format=application/openlayers`
+		const featureTypeUrl = `/workspaces/${workspace}/datastores/${datastore}/featuretypes/${tableName}.json`;
+		const createUrl = `/workspaces/${workspace}/datastores/${datastore}/featuretypes.json`;
+
+		try {
+			console.log(`Checking if feature type exists: ${featureTypeUrl}`);
+			await requestGeoServer(featureTypeUrl);
+			console.log('Feature type exists. Updating...');
+			await requestGeoServer(featureTypeUrl, 'PUT', {
+				featureType: {
+					name: tableName,
+					nativeName: tableName,
+					title: tableName,
+					srs: `EPSG:${srid}`,
+					enabled: true
+				}
 			});
-		} catch (geoserverError) {
-			console.error('GeoServer communication error:', geoserverError);
-			throw new Error(`Failed to publish to GeoServer: ${geoserverError.message}`);
+		} catch (err) {
+			if (err.message.includes('404')) {
+				console.log('Feature type does not exist. Creating...');
+				await requestGeoServer(createUrl, 'POST', {
+					featureType: {
+						name: tableName,
+						nativeName: tableName,
+						title: tableName,
+						srs: `EPSG:${srid}`,
+						enabled: true
+					}
+				});
+			} else {
+				throw err;
+			}
 		}
+
+		res.json({
+			success: true,
+			message: 'Shapefile imported and published successfully',
+			layerName: `${workspace}:${tableName}`,
+			previewUrl: `${geoserverurl.replace(/\/+$/, '')}/${workspace}/wms?service=WMS&version=1.1.0&request=GetMap&layers=${workspace}:${tableName}&styles=&bbox=-180,-90,180,90&width=800&height=600&srs=EPSG:4326&format=application/openlayers`
+		});
 	} catch (error) {
-		console.error('Import/publish error:', error);
-
-		let statusCode = 500;
-		let errorMessage = error.message;
-		let suggestion = 'Please check: 1) GeoServer is running, 2) Correct credentials, 3) Network connectivity';
-
-		if (error.message.includes('ECONNREFUSED')) {
-			statusCode = 503;
-			errorMessage = 'Cannot connect to GeoServer - is it running?';
-		} else if (error.message.includes('401')) {
-			statusCode = 401;
-			errorMessage = 'GeoServer authentication failed - check credentials';
-		} else if (error.message.includes('ogr2ogr')) {
-			errorMessage = 'Failed to import shapefile to database';
-			suggestion = 'Check PostgreSQL connection and that ogr2ogr is installed';
-		}
-
-		res.status(statusCode).json({
-			error: errorMessage,
-			details: error.message,
-			suggestion: suggestion
+		console.error('Error:', error);
+		res.status(500).json({
+			error: error.message,
+			suggestion: 'Check shapefile, database, or GeoServer credentials and connectivity.'
 		});
 	} finally {
 		try {
-			if (filePath && fs.existsSync(filePath)) {
-				fs.unlinkSync(filePath);
-				console.log(`Deleted temporary file: ${filePath}`);
-			}
-			if (extractDir && fs.existsSync(extractDir)) {
-				fs.rmSync(extractDir, { recursive: true, force: true });
-				console.log(`Deleted temporary directory: ${extractDir}`);
-			}
+			if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+			if (extractDir && fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
 		} catch (cleanupError) {
-			console.error('Cleanup error:', cleanupError);
+			console.warn('Cleanup error:', cleanupError);
 		}
 	}
 });
-
 
 
 
@@ -663,7 +658,6 @@ app.post('/api/geoserver/workspaces/:workspace/datastores', async (req, res) => 
 		});
 	}
 });
-
 // ===============================================================
 // POST /api/get-tables
 // Description: Gets all table names from a specified database and schema
@@ -734,7 +728,6 @@ app.post('/api/get-tables', async (req, res) => {
 		});
 	}
 });
-
 app.post('/api/get-columns', async (req, res) => {
 	const { dbName, schemaName, tableName } = req.body;
 
@@ -743,10 +736,10 @@ app.post('/api/get-columns', async (req, res) => {
 	}
 
 	const client = new Pool({
-		host: '192.168.20.49',
+		host: 'localhost',
 		port: 5432,
 		user: 'postgres',
-		password: 'postgres',
+		password: '123',
 		database: dbName
 	});
 
@@ -781,10 +774,10 @@ app.post('/api/get-chart-data', async (req, res) => {
 	}
 
 	const client = new Pool({
-		host: '192.168.20.49',
+		host: 'localhost',
 		port: 5432,
 		user: 'postgres',
-		password: 'postgres',
+		password: '123',
 		database: dbName,
 	});
 
@@ -831,5 +824,4 @@ app.post('/api/get-chart-data', async (req, res) => {
 // Start server
 app.listen(port, () => {
 	console.log(`Server running on port ${port}`);
-	console.log(`GeoServer URL: ${GEOSERVER_URL}`);
 });
