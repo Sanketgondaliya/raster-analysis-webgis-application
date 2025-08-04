@@ -40,8 +40,6 @@ app.use((err, req, res, next) => {
 		details: err.message
 	});
 });
-// GeoServer configuration
-const GEOSERVER_URL = 'http://localhost:8080/geoserver/rest';
 // Helper function to make authenticated requests to GeoServer with timeout
 async function makeGeoserverRequest(endpoint, method = 'GET', body = null, config) {
 	const { geoserverurl, username, password } = config;
@@ -220,6 +218,105 @@ app.post('/api/geoserver/createWorkspaces', async (req, res) => {
 		});
 	}
 });
+
+// ===============================================================
+// POST /test-db-connection
+// Description:
+//   - Tests PostgreSQL database connection using provided credentials
+// Request Body:
+//   {
+//     "host": "localhost",
+//     "port": "5432",
+//     "user": "postgres",
+//     "dbpassword": "123",
+//     "database": "postgres"
+//   }
+// Response:
+//   - 200 OK with success: true if connection is successful
+//   - 500 Internal Server Error with success: false if connection fails
+// ===============================================================
+app.post('/api/test-db-connection', async (req, res) => {
+  const {
+    host,
+    port,
+    user,
+    dbpassword,
+    database
+  } = req.body;
+
+  const pool = new Pool({
+    host,
+    port,
+    user,
+    password: dbpassword,
+    database,
+    connectionTimeoutMillis: 3000,
+  });
+
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT NOW()');
+    client.release();
+    res.json({ success: true, message: 'Database connection successful' });
+  } catch (error) {
+    console.error('Database Connection Error:', error.message); // Better logging
+    res.status(500).json({
+      success: false,
+      message: 'Database connection failed',
+      error: error.message
+    });
+  }
+});
+// ===============================================================
+// POST /api/test-geoserver-connection
+// Description:
+//   - Tests connection to the GeoServer REST API using credentials
+// Request Body:
+//   {
+//     "geoserverurl": "http://localhost:8080/geoserver/",
+//     "username": "admin",
+//     "password": "geoserver"
+//   }
+// Response:
+//   - 200 OK if authentication is successful
+//   - 500 Error if connection/auth fails
+// ===============================================================
+app.post('/api/test-geoserver-connection', async (req, res) => {
+  const { geoserverurl, username, password } = req.body;
+
+  try {
+    const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
+
+    const response = await fetch(`${geoserverurl}rest/workspaces.json`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${basicAuth}`
+      },
+      timeout: 3000
+    });
+
+    if (response.ok) {
+      return res.json({
+        success: true,
+        message: 'GeoServer connection successful'
+      });
+    } else {
+      return res.status(response.status).json({
+        success: false,
+        message: 'GeoServer responded with error',
+        statusCode: response.status
+      });
+    }
+  } catch (error) {
+    console.error('GeoServer Connection Error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'GeoServer connection failed',
+      error: error.message
+    });
+  }
+});
+
 
 // ===============================================================
 // POST /api/geoserver/getDatastoreList

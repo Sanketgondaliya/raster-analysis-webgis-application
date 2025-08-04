@@ -108,4 +108,22 @@ export class GeoserverService {
       })
     );
   }
+  testDatabaseConnection(payload: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/test-db-connection`, payload).pipe(
+      catchError((error) => {
+        console.error('📛 testDatabaseConnection error:', error);
+        return throwError(() => error); // 🔁 Pass full error to component
+      })
+    );
+  }
+  testGeoServerConnection(payload: any): Observable<any> {
+  return this.http.post<any>(`${this.apiUrl}/test-geoserver-connection`, payload).pipe(
+    catchError((error) => {
+      console.error('GeoServer connection test failed:', error);
+      return throwError(() => error); // Preserve error for display
+    })
+  );
+}
+
+
 }

@@ -44,7 +44,7 @@
       </ng-container>
 
       <ng-container *ngIf="value === 2">
-        <form [formGroup]="databaseConfig" (ngSubmit)="databaseConfigSubmit()" class="p-fluid">
+        <form [formGroup]="databaseConfig" (ngSubmit)="submitAndTestDatabaseConfig()" class="p-fluid">
           <div class="grid">
             <div class="col-12">
               <div class="field">
@@ -85,6 +85,7 @@
                 [disabled]="databaseConfig.invalid"></button>
               <button pButton type="button" label="Clear" (click)="clearDatabaseForm()"
                 class="p-button-secondary w-full" style="flex: 1;"></button>
+              
             </div>
           </div>
         </form>

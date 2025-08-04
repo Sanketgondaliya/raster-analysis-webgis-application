@@ -147,28 +147,66 @@ export class GeoserverComponent {
   geoserverConfigSumit(): void {
     if (this.geoserverConfig.invalid) {
       this.geoserverConfig.markAllAsTouched();
+      this.toastService.showWarn('Please fill out the GeoServer config form properly.');
       return;
     }
-    const payload = this.geoserverConfig.value;
-    localStorage.setItem('geoserverConfig', JSON.stringify(payload));
-    this.toastService.showSuccess('Geoserver Config Submitted and Saved!');
+
+    const formValue = this.geoserverConfig.value;
+    const payload = {
+      geoserverurl: formValue.geoserverurl,
+      username: formValue.geoserverUsername,
+      password: formValue.geoserverPassword
+    };
+
+    // Test GeoServer connection
+    this.geoserverService.testGeoServerConnection(payload).subscribe({
+      next: (res) => {
+        this.toastService.showSuccess(res.message || 'GeoServer connection successful!');
+        localStorage.setItem('geoserverConfig', JSON.stringify(formValue));
+        this.toastService.showSuccess('GeoServer Config Submitted and Saved!');
+      },
+      error: (err) => {
+        const backendMessage = err?.error?.error || err?.error?.message || 'GeoServer connection failed!';
+        this.toastService.showError(backendMessage);
+        console.error('GeoServer connection failed:', err);
+      }
+    });
   }
 
 
-  databaseConfigSubmit(): void {
+
+  submitAndTestDatabaseConfig(): void {
     if (this.databaseConfig.invalid) {
       this.databaseConfig.markAllAsTouched();
+      this.toastService.showWarn('Please fill out the database config form properly.');
       return;
     }
 
-    const payload = this.databaseConfig.value;
-    console.log('Submit Database Config:', payload);
+    const formValue = this.databaseConfig.value;
 
-    // Store in localStorage (just like Geoserver Config)
-    localStorage.setItem('databaseConfig', JSON.stringify(payload));
+    const payload = {
+      host: formValue.databaseHost,
+      port: formValue.databasePort,
+      user: formValue.databaseUsername,
+      dbpassword: formValue.databasePassword,
+      database: formValue.databaseDefaultDb
+    };
 
-    this.toastService.showSuccess('Database Config Submitted and Saved!');
+    this.geoserverService.testDatabaseConnection(payload).subscribe({
+      next: (res) => {
+        this.toastService.showSuccess(res.message || 'Database connection successful!');
+        localStorage.setItem('databaseConfig', JSON.stringify(formValue));
+        this.toastService.showSuccess('Database Config Submitted and Saved!');
+      },
+      error: (err) => {
+        debugger
+        const backendMessage = err?.error?.error || err?.error?.message || 'Failed to connect to the database.';
+        this.toastService.showError(backendMessage);
+        console.error('Database connection failed:', err);
+      }
+    });
   }
+
 
 
   onProjectSubmit(): void {
@@ -296,7 +334,7 @@ export class GeoserverComponent {
     const { selectedProject, selectedDataStore, layername } = this.publishLayerForm.value;
     const geoserverConfig = JSON.parse(localStorage.getItem('geoserverConfig') || '{}');
     const databaseConfig = JSON.parse(localStorage.getItem('databaseConfig') || '{}');
-debugger
+    debugger
     const formData = new FormData();
     formData.append('file', this.selectedFile);
     formData.append('workspace', selectedProject);
