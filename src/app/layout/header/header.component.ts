@@ -40,6 +40,26 @@ export class HeaderComponent {
   openUserPanel() {
     this.isUserPanelVisible = true;
   }
+  resetApp() {
+    // Preserve keys
+    const databaseConfig = localStorage.getItem('databaseConfig');
+    const geoserverConfig = localStorage.getItem('geoserverConfig');
+
+    // Clear everything
+    localStorage.clear();
+
+    // Restore only the preserved keys
+    if (databaseConfig) {
+      localStorage.setItem('databaseConfig', databaseConfig);
+    }
+    if (geoserverConfig) {
+      localStorage.setItem('geoserverConfig', geoserverConfig);
+    }
+
+    // Reload the app
+    location.reload();
+  }
+
 
   menuButtons = [
     { label: 'Layer Switcher', path: 'layer-switcher' },
