@@ -122,15 +122,32 @@ export class DashboardComponent {
       return;
     }
 
-    this.geoserverService.geoserverLayerList(selectedProject).subscribe({
+    const geoserverConfig = JSON.parse(localStorage.getItem('geoserverConfig') || '{}');
+    const databaseConfig = JSON.parse(localStorage.getItem('databaseConfig') || '{}');
+
+    const ProjectPayload = {
+      workspaceName: selectedProject,
+      geoserverurl: geoserverConfig.geoserverurl,
+      username: geoserverConfig.geoserverUsername,
+      password: geoserverConfig.geoserverPassword,
+      host: databaseConfig.databaseHost,
+      port: databaseConfig.databasePort,
+      user: databaseConfig.databaseUsername,
+      dbpassword: databaseConfig.databasePassword,
+      database: databaseConfig.databaseDefaultDb
+    };
+
+    this.geoserverService.geoserverLayerList(ProjectPayload).subscribe({
       next: (response) => {
         this.datastorelist = response?.datastores || [];
       },
       error: (err) => {
         console.error('Error fetching datastore list:', err);
+        this.toastService.showError('Failed to fetch datastore list.');
       }
     });
   }
+
 
   handleTableSelect(dsName: string): void {
     this.selectedColumns[dsName] = { x: undefined, y: undefined };
@@ -252,8 +269,24 @@ export class DashboardComponent {
   onTableChange(schemaName: string, table: any) {
     const tableName = typeof table === 'string' ? table : table?.name;
     if (!tableName) return;
-
-    this.geoserverService.getColumnsByTable(this.selectedProject, schemaName, tableName)
+    const geoserverConfig = JSON.parse(localStorage.getItem('geoserverConfig') || '{}');
+    const databaseConfig = JSON.parse(localStorage.getItem('databaseConfig') || '{}');
+    this.toastService.showSuccess('Project Created!');
+    const ProjectPayload = {
+      projectName: this.selectedProject,
+      geoserverurl: geoserverConfig.geoserverurl,
+      username: geoserverConfig.geoserverUsername,
+      password: geoserverConfig.geoserverPassword,
+      host: databaseConfig.databaseHost,
+      port: databaseConfig.databasePort,
+      user: databaseConfig.databaseUsername,
+      dbpassword: databaseConfig.databasePassword,
+      database: databaseConfig.databaseDefaultDb,
+      schemaName: schemaName,
+      dbName: this.selectedProject,
+      tableName: tableName
+    };
+    this.geoserverService.getColumnsByTable(ProjectPayload)
       .subscribe((columns: any[]) => {
         const supportedTypes = [
           ...this.dataTypeSupportChart.numeric,

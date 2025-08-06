@@ -129,7 +129,6 @@ app.get('/api/geoserver/workspaces', async (req, res) => {
 
 app.post('/api/geoserver/workspaces', async (req, res) => {
     try {
-        debugger
         // Extract workspaceName from the request body
         const { workspaceName } = req.body;
 
@@ -355,7 +354,6 @@ app.post('/api/geoserver/datastores', async (req, res) => {
 //   - srid: Optional spatial reference ID, default '4326'
 // ===============================================================
 app.post('/api/import/publish-shp', upload.single('file'), async (req, res) => {
-    debugger
     let filePath;
     let extractDir = null;
     let shapefilePath = null;

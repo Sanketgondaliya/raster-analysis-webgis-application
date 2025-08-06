@@ -506,137 +506,225 @@ app.use((err, req, res, next) => {
 
 
 // ===============================================================
-// POST /api/geoserver/workspaces/:workspace/datastores
-// Description: Fetches all datastores in a given workspace,
-//              along with their feature types and bounding boxes.
+// POST /api/geoserver/getDatastoreTable
+// Description: Fetches all datastores in a given workspace along with their tables
+//              Maintains the original response structure with bounding boxes
+// Request Body:
+//   {
+//     workspaceName: "workspace_name",
+//     geoserverurl: "...",
+//     username: "...",
+//     password: "...",
+//     host: "...",
+//     port: "...",
+//     user: "...",
+//     dbpassword: "...",
+//     database: "..."
+//   }
+// Response:
+//   {
+//     datastores: [
+//       {
+//         name: "datastore1",
+//         tables: [
+//           { 
+//             name: "table1", 
+//             bbox: { minx, miny, maxx, maxy } 
+//           }
+//         ]
+//       }
+//     ],
+//     metadata: {
+//       workspace: "workspace_name",
+//       count: X,
+//       processingTimeMs: Y
+//     }
+//   }
 // ===============================================================
-app.post('/api/geoserver/workspaces/:workspace/datastores', async (req, res) => {
-  const { workspace } = req.params;
+app.post('/api/geoserver/getDatastoreTable', async (req, res) => {
   const startTime = Date.now();
+  const {
+    workspaceName: workspace,
+    geoserverurl,
+    username,
+    password,
+    host,
+    port = 5432,
+    user,
+    dbpassword,
+    database
+  } = req.body;
 
   try {
-    // Validate workspace parameter presence
-    if (!workspace) {
+    // Validate required parameters
+    if (!workspace || !geoserverurl || !username || !password) {
       return res.status(400).json({
-        error: 'Workspace parameter is required',
-        suggestion: 'Format: /api/geoserver/workspaces/{workspace}/datastores'
+        error: 'Missing required parameters',
+        details: 'workspaceName, geoserverurl, username, and password are required'
       });
     }
 
-    // Request datastores list for the workspace from GeoServer REST API
-    const datastoresResponse = await makeGeoserverRequest(`/workspaces/${workspace}/datastores.json`);
+    // 1. Get datastores from GeoServer
+    const datastoresResponse = await makeGeoserverRequest(
+      `/workspaces/${workspace}/datastores.json`,
+      'GET',
+      null,
+      { geoserverurl, username, password }
+    );
 
-    // Handle non-OK response from GeoServer
     if (!datastoresResponse.ok) {
       const errorText = await datastoresResponse.text();
-
-      // Workspace not found (404)
-      if (datastoresResponse.status === 404) {
-        return res.status(404).json({
-          error: 'Workspace not found',
-          details: errorText
-        });
-      }
-      // Other errors
-      throw new Error(errorText);
+      return res.status(datastoresResponse.status).json({
+        error: 'Failed to fetch datastores from GeoServer',
+        details: errorText
+      });
     }
 
-    // Parse datastores JSON data
     const datastoresData = await datastoresResponse.json();
+    const datastores = datastoresData.dataStores?.dataStore || [];
 
-    // Process each datastore to fetch its feature types and bounding boxes
-    const datastoresWithLayers = await Promise.all(
-      datastoresData.dataStores.dataStore.map(async (ds) => {
+    // 2. Process each datastore to get its tables with bounding boxes
+    const datastoresWithTables = await Promise.all(
+      datastores.map(async (ds) => {
+        const datastoreInfo = {
+          name: ds.name,
+          tables: [],
+          errors: []
+        };
+
+        // 2a. Get feature types from GeoServer with bounding boxes
         try {
-          // Fetch feature types for the current datastore
           const featureTypesResponse = await makeGeoserverRequest(
-            `/workspaces/${workspace}/datastores/${ds.name}/featuretypes.json`
+            `/workspaces/${workspace}/datastores/${ds.name}/featuretypes.json`,
+            'GET',
+            null,
+            { geoserverurl, username, password }
           );
 
-          // Handle failure to fetch feature types
-          if (!featureTypesResponse.ok) {
-            console.error(`Failed to get feature types for datastore ${ds.name}`);
-            return {
-              name: ds.name,
-              tables: []  // Empty tables array on failure
-            };
-          }
+          if (featureTypesResponse.ok) {
+            const featureTypesData = await featureTypesResponse.json();
+            const featureTypes = featureTypesData.featureTypes?.featureType || [];
 
-          // Parse feature types data (array or single object)
-          const featureTypesData = await featureTypesResponse.json();
-          const featureTypes = featureTypesData.featureTypes?.featureType || [];
+            // Get detailed info for each feature type including bounding box
+            const tablesWithBBox = await Promise.all(
+              featureTypes.map(async (ft) => {
+                try {
+                  const featureDetailResponse = await makeGeoserverRequest(
+                    `/workspaces/${workspace}/datastores/${ds.name}/featuretypes/${ft.name}.json`,
+                    'GET',
+                    null,
+                    { geoserverurl, username, password }
+                  );
 
-          // For each feature type, fetch detailed info including bounding box
-          const tablesWithBBox = await Promise.all(
-            featureTypes.map(async (ft) => {
-              try {
-                // Fetch detailed feature type information
-                const featureDetailResponse = await makeGeoserverRequest(
-                  `/workspaces/${workspace}/datastores/${ds.name}/featuretypes/${ft.name}.json`
-                );
+                  if (!featureDetailResponse.ok) {
+                    console.warn(`No bbox info for ${ft.name}`);
+                    return {
+                      name: ft.name,
+                      bbox: null,
+                      source: 'geoserver'
+                    };
+                  }
 
-                // Handle missing bounding box info gracefully
-                if (!featureDetailResponse.ok) {
-                  console.warn(`No bbox info for ${ft.name}`);
+                  const detail = await featureDetailResponse.json();
                   return {
                     name: ft.name,
-                    bbox: null
+                    bbox: detail.featureType?.nativeBoundingBox || null,
+                    source: 'geoserver'
+                  };
+                } catch (err) {
+                  console.error(`Error fetching bbox for ${ft.name}`, err);
+                  return {
+                    name: ft.name,
+                    bbox: null,
+                    error: err.message,
+                    source: 'geoserver'
                   };
                 }
+              })
+            );
 
-                // Parse detailed feature type JSON response
-                const detail = await featureDetailResponse.json();
-                const bbox = detail.featureType?.nativeBoundingBox || null;
-
-                return {
-                  name: ft.name,
-                  bbox: bbox
-                };
-              } catch (err) {
-                // Log error but continue processing other feature types
-                console.error(`Error fetching bbox for ${ft.name}`, err);
-                return {
-                  name: ft.name,
-                  bbox: null,
-                  error: err.message
-                };
-              }
-            })
-          );
-
-          // Return datastore object with its tables and their bounding boxes
-          return {
-            name: ds.name,
-            tables: tablesWithBBox
-          };
+            datastoreInfo.tables = tablesWithBBox;
+          } else {
+            datastoreInfo.errors.push(`Failed to fetch GeoServer feature types: ${featureTypesResponse.status}`);
+          }
         } catch (error) {
-          // Handle error during processing of a datastore
-          console.error(`Error processing datastore ${ds.name}:`, error);
-          return {
-            name: ds.name,
-            tables: [],
-            error: error.message
-          };
+          datastoreInfo.errors.push(`GeoServer error: ${error.message}`);
         }
+
+        // 2b. Get tables from PostgreSQL if credentials provided
+        if (host && user && dbpassword) {
+          const client = new Client({
+            host,
+            port,
+            user,
+            password: dbpassword,
+            database: database || workspace.toLowerCase(),
+            connectTimeoutMillis: 3000
+          });
+
+          try {
+            await client.connect();
+            
+            // Check if schema exists (datastore name often matches schema name)
+            const schemaExists = await client.query(
+              `SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`,
+              [ds.name]
+            );
+
+            if (schemaExists.rows.length > 0) {
+              const tablesResult = await client.query(
+                `SELECT table_name FROM information_schema.tables 
+                 WHERE table_schema = $1 AND table_type = 'BASE TABLE'`,
+                [ds.name]
+              );
+
+              // Add PostgreSQL tables (won't have bbox info)
+              const pgTables = tablesResult.rows.map(row => ({
+                name: row.table_name,
+                bbox: null,
+                source: 'postgresql'
+              }));
+
+              // Combine tables, preferring GeoServer entries for names that exist in both
+              const combinedTables = [...datastoreInfo.tables];
+              pgTables.forEach(pgTable => {
+                if (!combinedTables.some(t => t.name === pgTable.name)) {
+                  combinedTables.push(pgTable);
+                }
+              });
+
+              datastoreInfo.tables = combinedTables;
+            }
+          } catch (dbError) {
+            datastoreInfo.errors.push(`PostgreSQL error: ${dbError.message}`);
+          } finally {
+            await client.end().catch(() => {});
+          }
+        }
+
+        return {
+          name: datastoreInfo.name,
+          tables: datastoreInfo.tables
+        };
       })
     );
 
-    // Return aggregated response including metadata
+    // Return response in original format
     res.json({
-      datastores: datastoresWithLayers,
+      datastores: datastoresWithTables,
       metadata: {
         workspace: workspace,
-        count: datastoresWithLayers.length,
+        count: datastoresWithTables.length,
         processingTimeMs: Date.now() - startTime
       }
     });
 
   } catch (error) {
-    // General error handler for the route
+    console.error('Error in getDatastoreTable endpoint:', error);
     res.status(500).json({
-      error: 'Failed to fetch datastores',
+      error: 'Internal server error',
       details: error.message,
-      suggestion: 'Check GeoServer logs for more details'
+      suggestion: 'Check GeoServer and database connections'
     });
   }
 });

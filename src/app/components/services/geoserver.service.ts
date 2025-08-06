@@ -47,10 +47,10 @@ export class GeoserverService {
       payload
     );
   }
-  geoserverLayerList(data: string): Observable<any> {
+  geoserverLayerList(payload: any): Observable<any> {
     return this.http.post<any>(
-      `${this.apiUrl}/geoserver/workspaces/${data}/datastores`,
-      {}
+      `${this.apiUrl}/geoserver/getDatastoreTable`,
+      payload
     );
   }
 
@@ -60,28 +60,19 @@ export class GeoserverService {
       payload
     );
   }
-  getTables(dbName: string, schemaName: string): Observable<any> {
-    const payload = {
-      dbName: dbName,
-      schemaName: schemaName
-    };
-
-    // Assuming this.apiUrl is already the correct base URL
+  getTables(payload: any): Observable<any> {
     const url = `${this.apiUrl}/get-tables`;
-
     return this.http.post<any>(url, payload).pipe(
       catchError((error) => {
-        // Handle errors if the API call fails
         console.error('Error fetching tables:', error);
         return throwError(() => new Error('Failed to fetch tables.'));
       })
     );
   }
-  // geoserver.service.ts
-  getColumnsByTable(dbName: string, schemaName: string, tableName: string): Observable<any> {
-    const payload = { dbName, schemaName, tableName };
-    const url = `${this.apiUrl}/get-columns`;
 
+  // geoserver.service.ts
+  getColumnsByTable(payload:any): Observable<any> {
+    const url = `${this.apiUrl}/get-columns`;
     return this.http.post<any>(url, payload).pipe(
       catchError((error) => {
         console.error('Error fetching columns:', error);
@@ -117,13 +108,13 @@ export class GeoserverService {
     );
   }
   testGeoServerConnection(payload: any): Observable<any> {
-  return this.http.post<any>(`${this.apiUrl}/test-geoserver-connection`, payload).pipe(
-    catchError((error) => {
-      console.error('GeoServer connection test failed:', error);
-      return throwError(() => error); // Preserve error for display
-    })
-  );
-}
+    return this.http.post<any>(`${this.apiUrl}/test-geoserver-connection`, payload).pipe(
+      catchError((error) => {
+        console.error('GeoServer connection test failed:', error);
+        return throwError(() => error); // Preserve error for display
+      })
+    );
+  }
 
 
 }

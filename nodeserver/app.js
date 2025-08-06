@@ -73,6 +73,7 @@ async function makeGeoserverRequest(endpoint, method = 'GET', body = null, confi
 		clearTimeout(timeout);
 	}
 }
+
 // =========================================
 // POST /api/geoserver/workspaces
 // Description: Fetches a list of all workspaces from GeoServer
@@ -115,6 +116,7 @@ app.post('/api/geoserver/workspaces', async (req, res) => {
 		});
 	}
 });
+
 // ===============================================================
 // POST /api/geoserver/createWorkspaces
 // Description:
@@ -236,37 +238,38 @@ app.post('/api/geoserver/createWorkspaces', async (req, res) => {
 //   - 500 Internal Server Error with success: false if connection fails
 // ===============================================================
 app.post('/api/test-db-connection', async (req, res) => {
-  const {
-    host,
-    port,
-    user,
-    dbpassword,
-    database
-  } = req.body;
+	const {
+		host,
+		port,
+		user,
+		dbpassword,
+		database
+	} = req.body;
 
-  const pool = new Pool({
-    host,
-    port,
-    user,
-    password: dbpassword,
-    database,
-    connectionTimeoutMillis: 3000,
-  });
+	const pool = new Pool({
+		host,
+		port,
+		user,
+		password: dbpassword,
+		database,
+		connectionTimeoutMillis: 3000,
+	});
 
-  try {
-    const client = await pool.connect();
-    await client.query('SELECT NOW()');
-    client.release();
-    res.json({ success: true, message: 'Database connection successful' });
-  } catch (error) {
-    console.error('Database Connection Error:', error.message); // Better logging
-    res.status(500).json({
-      success: false,
-      message: 'Database connection failed',
-      error: error.message
-    });
-  }
+	try {
+		const client = await pool.connect();
+		await client.query('SELECT NOW()');
+		client.release();
+		res.json({ success: true, message: 'Database connection successful' });
+	} catch (error) {
+		console.error('Database Connection Error:', error.message); // Better logging
+		res.status(500).json({
+			success: false,
+			message: 'Database connection failed',
+			error: error.message
+		});
+	}
 });
+
 // ===============================================================
 // POST /api/test-geoserver-connection
 // Description:
@@ -282,41 +285,40 @@ app.post('/api/test-db-connection', async (req, res) => {
 //   - 500 Error if connection/auth fails
 // ===============================================================
 app.post('/api/test-geoserver-connection', async (req, res) => {
-  const { geoserverurl, username, password } = req.body;
+	const { geoserverurl, username, password } = req.body;
 
-  try {
-    const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
+	try {
+		const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
 
-    const response = await fetch(`${geoserverurl}rest/workspaces.json`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Basic ${basicAuth}`
-      },
-      timeout: 3000
-    });
+		const response = await fetch(`${geoserverurl}rest/workspaces.json`, {
+			method: 'GET',
+			headers: {
+				'Authorization': `Basic ${basicAuth}`
+			},
+			timeout: 3000
+		});
 
-    if (response.ok) {
-      return res.json({
-        success: true,
-        message: 'GeoServer connection successful'
-      });
-    } else {
-      return res.status(response.status).json({
-        success: false,
-        message: 'GeoServer responded with error',
-        statusCode: response.status
-      });
-    }
-  } catch (error) {
-    console.error('GeoServer Connection Error:', error.message);
-    return res.status(500).json({
-      success: false,
-      message: 'GeoServer connection failed',
-      error: error.message
-    });
-  }
+		if (response.ok) {
+			return res.json({
+				success: true,
+				message: 'GeoServer connection successful'
+			});
+		} else {
+			return res.status(response.status).json({
+				success: false,
+				message: 'GeoServer responded with error',
+				statusCode: response.status
+			});
+		}
+	} catch (error) {
+		console.error('GeoServer Connection Error:', error.message);
+		return res.status(500).json({
+			success: false,
+			message: 'GeoServer connection failed',
+			error: error.message
+		});
+	}
 });
-
 
 // ===============================================================
 // POST /api/geoserver/getDatastoreList
@@ -352,6 +354,7 @@ app.post('/api/geoserver/getDatastoreList', async (req, res) => {
 		});
 	}
 });
+
 // ===============================================================
 // POST /api/geoserver/createDatastore
 // Description:
@@ -371,7 +374,6 @@ app.post('/api/geoserver/getDatastoreList', async (req, res) => {
 //   }
 // ===============================================================
 app.post('/api/geoserver/createDatastore', async (req, res) => {
-	debugger
 	try {
 		const {
 			workspaceName,
@@ -458,8 +460,6 @@ app.post('/api/geoserver/createDatastore', async (req, res) => {
 		});
 	}
 });
-
-
 
 // ===============================================================
 // POST /api/import/publish-shp
@@ -618,143 +618,196 @@ app.post('/api/import/publish-shp', upload.single('file'), async (req, res) => {
 	}
 });
 
-
-
 // ===============================================================
-// POST /api/geoserver/workspaces/:workspace/datastores
-// Description: Fetches all datastores in a given workspace,
-//              along with their feature types and bounding boxes.
+// POST /api/geoserver/getDatastoreTable
+// Description: Fetches all datastores in a given workspace along with their tables
+// Request Body:
+//   {
+//     workspaceName: "workspace_name",  // Required
+//     geoserverurl: "...",             // Required
+//     username: "...",                 // Required
+//     password: "...",                 // Required
+//     host: "...",                     // Optional (for PostgreSQL integration)
+//     port: "...",                     // Optional
+//     user: "...",                     // Optional
+//     dbpassword: "...",               // Optional
+//     database: "..."                  // Optional
+//   }
+// Response:
+//   {
+//     success: boolean,
+//     datastores: [
+//       {
+//         name: "datastore1",
+//         tables: [
+//           { name: "table1", type: "featureType" },
+//           { name: "table2", type: "postgresTable" }
+//         ]
+//       }
+//     ]
+//   }
 // ===============================================================
-app.post('/api/geoserver/workspaces/:workspace/datastores', async (req, res) => {
-	const { workspace } = req.params;
+app.post('/api/geoserver/getDatastoreTable', async (req, res) => {
 	const startTime = Date.now();
 
+	const {
+		workspaceName: workspace,
+		geoserverurl,
+		username,
+		password,
+		host,
+		port = 5432,
+		user,
+		dbpassword,
+		database
+	} = req.body;
+
 	try {
-		// Validate workspace parameter presence
-		if (!workspace) {
+		// Validation
+		if (!workspace || !geoserverurl || !username || !password) {
 			return res.status(400).json({
-				error: 'Workspace parameter is required',
-				suggestion: 'Format: /api/geoserver/workspaces/{workspace}/datastores'
+				success: false,
+				error: 'Missing required parameters',
+				details: 'workspaceName, geoserverurl, username, and password are required'
 			});
 		}
 
-		// Request datastores list for the workspace from GeoServer REST API
-		const datastoresResponse = await makeGeoserverRequest(`/workspaces/${workspace}/datastores.json`);
-
-		// Handle non-OK response from GeoServer
-		if (!datastoresResponse.ok) {
-			const errorText = await datastoresResponse.text();
-
-			// Workspace not found (404)
-			if (datastoresResponse.status === 404) {
-				return res.status(404).json({
-					error: 'Workspace not found',
-					details: errorText
-				});
-			}
-			// Other errors
-			throw new Error(errorText);
-		}
-
-		// Parse datastores JSON data
-		const datastoresData = await datastoresResponse.json();
-
-		// Process each datastore to fetch its feature types and bounding boxes
-		const datastoresWithLayers = await Promise.all(
-			datastoresData.dataStores.dataStore.map(async (ds) => {
-				try {
-					// Fetch feature types for the current datastore
-					const featureTypesResponse = await makeGeoserverRequest(
-						`/workspaces/${workspace}/datastores/${ds.name}/featuretypes.json`
-					);
-
-					// Handle failure to fetch feature types
-					if (!featureTypesResponse.ok) {
-						console.error(`Failed to get feature types for datastore ${ds.name}`);
-						return {
-							name: ds.name,
-							tables: []  // Empty tables array on failure
-						};
-					}
-
-					// Parse feature types data (array or single object)
-					const featureTypesData = await featureTypesResponse.json();
-					const featureTypes = featureTypesData.featureTypes?.featureType || [];
-
-					// For each feature type, fetch detailed info including bounding box
-					const tablesWithBBox = await Promise.all(
-						featureTypes.map(async (ft) => {
-							try {
-								// Fetch detailed feature type information
-								const featureDetailResponse = await makeGeoserverRequest(
-									`/workspaces/${workspace}/datastores/${ds.name}/featuretypes/${ft.name}.json`
-								);
-
-								// Handle missing bounding box info gracefully
-								if (!featureDetailResponse.ok) {
-									console.warn(`No bbox info for ${ft.name}`);
-									return {
-										name: ft.name,
-										bbox: null
-									};
-								}
-
-								// Parse detailed feature type JSON response
-								const detail = await featureDetailResponse.json();
-								const bbox = detail.featureType?.nativeBoundingBox || null;
-
-								return {
-									name: ft.name,
-									bbox: bbox
-								};
-							} catch (err) {
-								// Log error but continue processing other feature types
-								console.error(`Error fetching bbox for ${ft.name}`, err);
-								return {
-									name: ft.name,
-									bbox: null,
-									error: err.message
-								};
-							}
-						})
-					);
-
-					// Return datastore object with its tables and their bounding boxes
-					return {
-						name: ds.name,
-						tables: tablesWithBBox
-					};
-				} catch (error) {
-					// Handle error during processing of a datastore
-					console.error(`Error processing datastore ${ds.name}:`, error);
-					return {
-						name: ds.name,
-						tables: [],
-						error: error.message
-					};
-				}
-			})
+		// --- Fetch datastores from GeoServer
+		const datastoresResponse = await makeGeoserverRequest(
+			`/workspaces/${workspace}/datastores.json`,
+			'GET',
+			null,
+			{ geoserverurl, username, password }
 		);
 
-		// Return aggregated response including metadata
-		res.json({
-			datastores: datastoresWithLayers,
+		if (!datastoresResponse.ok) {
+			const errorText = await datastoresResponse.text();
+			return res.status(datastoresResponse.status).json({
+				success: false,
+				error: 'Failed to fetch datastores from GeoServer',
+				details: errorText
+			});
+		}
+
+		const datastoresJson = await datastoresResponse.json();
+		const datastores = datastoresJson.dataStores?.dataStore || [];
+
+		// --- Process each datastore
+		const datastoresWithTables = await Promise.all(datastores.map(async (ds) => {
+			const info = {
+				name: ds.name,
+				tables: []
+			};
+
+			// -- GeoServer feature types
+			try {
+				const ftResponse = await makeGeoserverRequest(
+					`/workspaces/${workspace}/datastores/${ds.name}/featuretypes.json`,
+					'GET',
+					null,
+					{ geoserverurl, username, password }
+				);
+
+				if (ftResponse.ok) {
+					const ftData = await ftResponse.json();
+					const featureTypes = ftData.featureTypes?.featureType || [];
+
+					const tables = await Promise.all(featureTypes.map(async (ft) => {
+						try {
+							const detailResp = await makeGeoserverRequest(
+								`/workspaces/${workspace}/datastores/${ds.name}/featuretypes/${ft.name}.json`,
+								'GET',
+								null,
+								{ geoserverurl, username, password }
+							);
+
+							const detail = detailResp.ok ? await detailResp.json() : null;
+							return {
+								name: ft.name,
+								bbox: detail?.featureType?.nativeBoundingBox || null,
+								source: 'geoserver'
+							};
+						} catch (e) {
+							return { name: ft.name, bbox: null, source: 'geoserver', error: e.message };
+						}
+					}));
+
+					info.tables = tables;
+				}
+			} catch (e) {
+				// continue silently
+			}
+
+			// -- PostgreSQL tables (if DB info exists)
+			if (host && user && dbpassword) {
+				const client = new Client({
+					host,
+					port,
+					user,
+					password: dbpassword,
+					database: database || workspace.toLowerCase(),
+					connectTimeoutMillis: 3000
+				});
+
+				try {
+					await client.connect();
+
+					const schemaExists = await client.query(
+						`SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`,
+						[ds.name]
+					);
+
+					if (schemaExists.rows.length > 0) {
+						const pgTablesResult = await client.query(
+							`SELECT table_name FROM information_schema.tables 
+               WHERE table_schema = $1 AND table_type = 'BASE TABLE'`,
+							[ds.name]
+						);
+
+						const pgTables = pgTablesResult.rows.map(row => ({
+							name: row.table_name,
+							bbox: null,
+							source: 'postgresql'
+						}));
+
+						// Merge without duplicates
+						const existingNames = info.tables.map(t => t.name);
+						pgTables.forEach(pg => {
+							if (!existingNames.includes(pg.name)) info.tables.push(pg);
+						});
+					}
+
+				} catch (err) {
+					console.warn(`PostgreSQL error for datastore ${ds.name}:`, err.message);
+				} finally {
+					await client.end().catch(() => { });
+				}
+			}
+
+			return info;
+		}));
+
+		// Final structured response
+		return res.json({
+			success: true,
+			datastores: datastoresWithTables,
 			metadata: {
-				workspace: workspace,
-				count: datastoresWithLayers.length,
+				workspace,
+				count: datastoresWithTables.length,
 				processingTimeMs: Date.now() - startTime
 			}
 		});
 
 	} catch (error) {
-		// General error handler for the route
-		res.status(500).json({
-			error: 'Failed to fetch datastores',
-			details: error.message,
-			suggestion: 'Check GeoServer logs for more details'
+		console.error('Fatal error in /getDatastoreTable:', error);
+		return res.status(500).json({
+			success: false,
+			error: 'Internal server error',
+			details: error.message
 		});
 	}
 });
+
 // ===============================================================
 // POST /api/get-tables
 // Description: Gets all table names from a specified database and schema
@@ -762,69 +815,74 @@ app.post('/api/geoserver/workspaces/:workspace/datastores', async (req, res) => 
 //   - dbName: Name of the PostgreSQL database (required)
 //   - schemaName: Name of the schema (required)
 // ===============================================================
+// Node.js/Express + PostgreSQL
 app.post('/api/get-tables', async (req, res) => {
 	try {
-		const { dbName, schemaName } = req.body;
+		const {
+			host,
+			port,
+			user,
+			dbpassword,
+			projectName,
+			schemaName
+		} = req.body;
 
-		if (!dbName || !schemaName) {
-			return res.status(400).json({ error: 'Both dbName and schemaName are required' });
+		if (!host || !port || !user || !dbpassword || !projectName || !schemaName) {
+			return res.status(400).json({
+				success: false,
+				message: 'Missing one or more required parameters: host, port, user, dbpassword, projectName, schemaName'
+			});
 		}
 
 		const client = new Client({
-			...pgAdminConfig,
-			database: dbName
+			host,
+			port,
+			user,
+			password: dbpassword,
+			database: projectName,
+			ssl: false // Set to true if you're using SSL connections
 		});
 
 		await client.connect();
 
-		// Query to get the list of table names
-		const query = `
+		// Get tables from schema
+		const tablesResult = await client.query(`
       SELECT table_name
       FROM information_schema.tables
-      WHERE table_schema = $1
-        AND table_type = 'BASE TABLE';
-    `;
-		const result = await client.query(query, [schemaName]);
-		const tableNames = result.rows.map(row => row.table_name);
+      WHERE table_schema = $1 AND table_type = 'BASE TABLE';
+    `, [schemaName]);
 
-		if (tableNames.length === 0) {
-			await client.end();
-			return res.json({
-				success: true,
-				message: `No tables found in schema '${schemaName}' of database '${dbName}'`,
-				tables: []
-			});
-		}
+		const tableNames = tablesResult.rows.map(row => row.table_name);
 
-		// Query the data from each table and return it
 		const tablesData = [];
 
 		for (const tableName of tableNames) {
-			const dataQuery = `SELECT * FROM "${schemaName}"."${tableName}" LIMIT 10`; // Limiting rows for demo
-			const tableDataResult = await client.query(dataQuery);
+			const result = await client.query(`SELECT * FROM "${schemaName}"."${tableName}" LIMIT 10`);
 			tablesData.push({
 				tableName,
-				data: tableDataResult.rows
+				data: result.rows
 			});
 		}
 
 		await client.end();
 
-		return res.json({
+		res.json({
 			success: true,
-			message: `Tables and data from schema '${schemaName}' of database '${dbName}' fetched successfully`,
+			message: `Fetched ${tableNames.length} tables from schema '${schemaName}'`,
 			tables: tablesData
 		});
 
-	} catch (error) {
-		console.error('Error fetching table names and data:', error);
+	} catch (err) {
+		console.error('Database fetch error:', err);
 		res.status(500).json({
 			success: false,
-			message: 'Failed to fetch tables and data',
-			error: error.message
+			message: 'Error fetching tables or data',
+			error: err.message
 		});
 	}
 });
+
+/*optiizatiopn pending */
 app.post('/api/get-columns', async (req, res) => {
 	const { dbName, schemaName, tableName } = req.body;
 
@@ -858,6 +916,7 @@ app.post('/api/get-columns', async (req, res) => {
 		client.end(); // close the dynamic connection
 	}
 });
+
 app.post('/api/get-chart-data', async (req, res) => {
 	const { dbName, schemaName, tableName, xColumn, yColumn, chartType } = req.body;
 

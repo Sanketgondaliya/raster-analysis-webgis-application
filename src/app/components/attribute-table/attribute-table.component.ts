@@ -124,7 +124,23 @@ export class AttributeTableComponent implements AfterViewInit, AfterViewChecked 
   }
 
   fetchTablesForDatastore(tab: any): void {
-    this.geoserverService.getTables(this.selectedProject, tab.value).subscribe({
+    const geoserverConfig = JSON.parse(localStorage.getItem('geoserverConfig') || '{}');
+    const databaseConfig = JSON.parse(localStorage.getItem('databaseConfig') || '{}');
+    this.toastService.showSuccess('Project Created!');
+    const ProjectPayload = {
+      projectName: this.selectedProject,
+      geoserverurl: geoserverConfig.geoserverurl,
+      username: geoserverConfig.geoserverUsername,
+      password: geoserverConfig.geoserverPassword,
+      host: databaseConfig.databaseHost,
+      port: databaseConfig.databasePort,
+      user: databaseConfig.databaseUsername,
+      dbpassword: databaseConfig.databasePassword,
+      database: databaseConfig.databaseDefaultDb,
+      schemaName: tab.value,
+      dbName: this.selectedProject
+    };
+    this.geoserverService.getTables(ProjectPayload).subscribe({
       next: (response) => {
         if (response.success) {
           tab.tables = response.tables

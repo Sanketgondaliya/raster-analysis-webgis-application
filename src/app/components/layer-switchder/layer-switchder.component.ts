@@ -167,12 +167,8 @@ export class LayerSwitchderComponent {
     }
 
     localStorage.setItem('checkedTables', JSON.stringify(this.checkedTables));
-
-    // Zoom to extent
     if (isChecked && tableInfo?.bbox) {
       const bbox = tableInfo.bbox;
-
-      // ✅ Safely extract CRS string
       let sourceCRS: string;
       if (typeof bbox.crs === 'string') {
         sourceCRS = bbox.crs;
@@ -202,7 +198,7 @@ export class LayerSwitchderComponent {
 
   onBasemapChange(selected: string): void {
     this.selectedBasemap = selected;
-    localStorage.setItem('selectedBasemap', selected); // Save to localStorage
+    localStorage.setItem('selectedBasemap', selected); 
 
     this.mapService.removeCurrentBasemap();
     this.mapService.addBasemap(selected);
@@ -217,24 +213,48 @@ export class LayerSwitchderComponent {
   }
 
   getDatastoreList(): void {
-    if (!this.selectedProject) {
+    const selectedProject = localStorage.getItem('selectedProject') || '';
+    if (!selectedProject) {
       this.toastService.showInfo('Please select a project first.');
       return;
     }
 
-    this.geoserverService.geoserverLayerList(this.selectedProject).subscribe({
+    const geoserverConfig = JSON.parse(localStorage.getItem('geoserverConfig') || '{}');
+    const databaseConfig = JSON.parse(localStorage.getItem('databaseConfig') || '{}');
+
+    const ProjectPayload = {
+      workspaceName: selectedProject,
+      geoserverurl: geoserverConfig.geoserverurl,
+      username: geoserverConfig.geoserverUsername,
+      password: geoserverConfig.geoserverPassword,
+      host: databaseConfig.databaseHost,
+      port: databaseConfig.databasePort,
+      user: databaseConfig.databaseUsername,
+      dbpassword: databaseConfig.databasePassword,
+      database: databaseConfig.databaseDefaultDb
+    };
+
+    this.geoserverService.geoserverLayerList(ProjectPayload).subscribe({
       next: (response) => {
-        const dataStores = response?.datastores || [];
-        if (dataStores.length === 0) {
-          this.toastService.showInfo('No datastores found. Please create one.');
-          this.datastorelist = [];
-        } else {
-          this.datastorelist = dataStores;
-          this.loadAllLayers();
+        this.datastorelist = response?.datastores || [];
+        for (const ds of this.datastorelist) {
+          for (const table of ds.tables) {
+            const key = `${ds.name}.${table.name}`;
+            if (!this.checkedTables[key]) {
+              this.checkedTables[key] = {
+                checked: false,
+                bbox: table.bbox
+              };
+            }
+          }
         }
-      },
+        //localStorage.setItem('checkedTables', JSON.stringify(this.checkedTables));
+        this.loadAllLayers();
+      }
+      ,
       error: (err) => {
         console.error('Error fetching datastore list:', err);
+        this.toastService.showError('Failed to fetch datastore list.');
       }
     });
   }
