@@ -107,7 +107,7 @@ export class LayerSwitchderComponent {
       this.checkedTables = JSON.parse(storedTables);
     }
 
-    this.loadAllLayers();
+    //this.loadAllLayers();
   }
 
 
@@ -120,12 +120,15 @@ export class LayerSwitchderComponent {
     for (const ds of this.datastorelist) {
       for (const table of ds.tables) {
         const key = `${ds.name}.${table.name}`;
-        const layerName = `${this.selectedProject}:${table.name}`;
 
+        // ✅ Skip if layer already exists in wmsLayers
         if (this.wmsLayers[key]) continue;
 
+        const layerName = `${this.selectedProject}:${table.name}`;
+
+        // ✅ Create WMS Layer
         const wmsLayer = new TileLayer({
-          className:key,
+          className: key,
           source: new TileWMS({
             url: `${geoserverUrl}${this.selectedProject}/wms`,
             params: {
@@ -142,13 +145,23 @@ export class LayerSwitchderComponent {
           zIndex: 999
         });
 
+        // ✅ Store the layer
         this.wmsLayers[key] = wmsLayer;
 
+        // ✅ Store checked state if not already present
         if (!this.checkedTables[key]) {
-          this.checkedTables[key] = { checked: false, bbox: table.bbox };
+          this.checkedTables[key] = {
+            checked: false,
+            bbox: table.bbox
+          };
         }
 
-        this.map.addLayer(wmsLayer);
+        const alreadyAdded = this.map.getLayers().getArray()
+          .some(l => l.getClassName?.() === key);
+        if (!alreadyAdded) {
+          this.map.addLayer(wmsLayer);
+        }
+
       }
     }
 
@@ -157,18 +170,24 @@ export class LayerSwitchderComponent {
 
 
 
-  onItemClick(tableName: string, datastoreName: string): void {
+
+  onItemClick(event: any, tableName: string, datastoreName: string): void {
     const key = `${datastoreName}.${tableName}`;
     const tableInfo = this.checkedTables[key];
-    const isChecked = tableInfo?.checked;
-
-    const layer = this.wmsLayers[key];
-    if (layer) {
-      layer.setVisible(isChecked);
+    const itemChecked = event.checked;
+    let allLayers =this.map.getAllLayers();
+    for (let dataCount = 0; dataCount < allLayers.length; dataCount++) {
+      const element = allLayers[dataCount];
+      if(element.getClassName()===key){
+        element.setVisible(itemChecked)
+      }
+      
     }
-
+    if (this.checkedTables[key]) {
+      this.checkedTables[key].checked = itemChecked;
+    }
     localStorage.setItem('checkedTables', JSON.stringify(this.checkedTables));
-    if (isChecked && tableInfo?.bbox) {
+    if (itemChecked && tableInfo?.bbox) {
       const bbox = tableInfo.bbox;
       let sourceCRS: string;
       if (typeof bbox.crs === 'string') {
@@ -179,12 +198,9 @@ export class LayerSwitchderComponent {
         console.warn('Invalid CRS format in bbox:', bbox.crs);
         return;
       }
-
       const extent = [bbox.minx, bbox.miny, bbox.maxx, bbox.maxy];
-
       try {
         const transformedExtent = transformExtent(extent, sourceCRS, 'EPSG:3857');
-
         this.map.getView().fit(transformedExtent, {
           duration: 1000,
           padding: [50, 50, 50, 50]
@@ -197,9 +213,10 @@ export class LayerSwitchderComponent {
 
 
 
+
   onBasemapChange(selected: string): void {
     this.selectedBasemap = selected;
-    localStorage.setItem('selectedBasemap', selected); 
+    localStorage.setItem('selectedBasemap', selected);
 
     this.mapService.removeCurrentBasemap();
     this.mapService.addBasemap(selected);
@@ -249,7 +266,7 @@ export class LayerSwitchderComponent {
             }
           }
         }
-        //localStorage.setItem('checkedTables', JSON.stringify(this.checkedTables));
+        localStorage.setItem('checkedTables', JSON.stringify(this.checkedTables));
         this.loadAllLayers();
       }
       ,

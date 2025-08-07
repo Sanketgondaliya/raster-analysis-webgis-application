@@ -30,8 +30,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   popupCloserEl!: HTMLElement;
 
   popupTabs: PopupTab[] = [];
-selectedTab: string | number = '';  // Allow both types
-  constructor(private mapService: MapService) {}
+  selectedTab: string | number = '';  // Allow both types
+  constructor(private mapService: MapService) { }
 
   ngAfterViewInit(): void {
     this.initializeMap();
@@ -43,9 +43,9 @@ selectedTab: string | number = '';  // Allow both types
     }
   }
 
-onTabChange(value: string | number) {
-  this.selectedTab = String(value); // Convert to string if needed
-}
+  onTabChange(value: string | number) {
+    this.selectedTab = String(value); // Convert to string if needed
+  }
 
   private initPopupOverlay(): void {
     this.popupContentEl = document.getElementById('popup-content') as HTMLElement;
@@ -146,13 +146,13 @@ onTabChange(value: string | number) {
 
       const results = (await Promise.all(requests)).filter(r => r !== null) as PopupTab[];
 
-// In the setupWmsFeatureInfo method:
-this.popupTabs = results.length > 0
-  ? results.map(r => ({
-      title: String(r.title), // Ensure title is always a string
-      data: r.data
-    }))
-  : [{ title: 'Info', data: { message: 'No features found.' } }];
+      // In the setupWmsFeatureInfo method:
+      this.popupTabs = results.length > 0
+        ? results.map(r => ({
+          title: String(r.title), // Ensure title is always a string
+          data: r.data
+        }))
+        : [{ title: 'Info', data: { message: 'No features found.' } }];
 
 
       this.selectedTab = this.popupTabs[0]?.title || '';

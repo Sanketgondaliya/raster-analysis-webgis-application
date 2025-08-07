@@ -309,7 +309,6 @@ export class DashboardComponent {
           ...this.dataTypeSupportChart.numeric,
           ...this.dataTypeSupportChart.string
         ];
-        debugger
         if (!data.columns) return;
         const filtered = data.columns.filter(col =>
           col.column_name && supportedTypes.includes(col.data_type.toLowerCase())

@@ -20,7 +20,7 @@
 
               <p-checkbox *ngIf="tab.label === 'Temporal'" [binary]="true"
                 [(ngModel)]="item.checked"
-                (onChange)="onItemClick(item.name, tab.label)"
+                (onChange)="onItemClick($event,item.name, tab.label)"
                 [inputId]="item.id">
               </p-checkbox>
 
@@ -42,7 +42,7 @@
             <div *ngFor="let table of ds.tables" class="flex align-items-center gap-2 ml-3 my-2">
               <p-checkbox [binary]="true"
                 [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
-                (onChange)="onItemClick(table.name, ds.name)"
+                (onChange)="onItemClick($event,table.name, ds.name)"
                 [inputId]="ds.name + '_' + table.name">
               </p-checkbox>
               <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>

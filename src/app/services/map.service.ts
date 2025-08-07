@@ -85,12 +85,9 @@ export class MapService {
   updateLayerFilter(layerName: string, cqlFilter: string | null): void {
     const layers = this._map.getLayers();
     layers.forEach(layer => {
-      debugger
       if (layer.getClassName() === layerName && layer instanceof TileLayer) {
-        debugger
         const source = layer.getSource();
         if (source instanceof TileWMS) {
-          debugger
           source.updateParams({ 'CQL_FILTER': cqlFilter });
           source.refresh();
         }
