@@ -4,7 +4,8 @@ import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 import TileWMS from 'ol/source/TileWMS';
-
+import View from 'ol/View';
+import { fromLonLat } from 'ol/proj';
 declare global {
   interface Window {
     map: Map;
@@ -21,11 +22,32 @@ export class MapService {
 
 
 
+  // India's approximate bounding coordinates
+  private readonly INDIA_CENTER = [80.9629, 20.5937]; // Approximate center of India
+  private readonly INDIA_ZOOM = 4.7;
 
   setMap(map: Map): void {
     this._map = map;
     window.map = this._map;
 
+    // Set default basemap and view for India
+    this.setDefaultIndiaView();
+    this.addBasemap('osm'); // Default to OSM basemap
+  }
+
+  private setDefaultIndiaView(): void {
+    if (!this._map) return;
+
+    const view = this._map.getView();
+    if (view) {
+      view.setCenter(fromLonLat(this.INDIA_CENTER));
+      view.setZoom(this.INDIA_ZOOM);
+    } else {
+      this._map.setView(new View({
+        center: fromLonLat(this.INDIA_CENTER),
+        zoom: this.INDIA_ZOOM
+      }));
+    }
   }
 
   getMap(): Map {
