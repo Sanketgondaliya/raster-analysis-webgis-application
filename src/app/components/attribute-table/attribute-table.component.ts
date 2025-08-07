@@ -9,9 +9,9 @@ import { CommonModule } from '@angular/common';
 import { TabsModule } from 'primeng/tabs';
 import { TableModule } from 'primeng/table';
 
-import { GeoserverService } from '../services/geoserver.service';
-import { ToastService } from '../services/toast.service';
-import { MapService } from '../services/map.service';
+import { GeoserverService } from '../../services/geoserver.service';
+import { ToastService } from '../../services/toast.service';
+import { MapService } from '../../services/map.service';
 import { WKB } from 'ol/format';
 
 @Component({

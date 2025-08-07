@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TabsModule } from 'primeng/tabs';
 import { Select } from 'primeng/select';
-import { ToastService } from '../services/toast.service';
-import { GeoserverService } from '../services/geoserver.service';
+import { ToastService } from '../../services/toast.service';
+import { GeoserverService } from '../../services/geoserver.service';
 import { ChartConfiguration, ChartType, ChartOptions } from 'chart.js';
 import { ChartTypeRegistry } from 'chart.js';
 import {

@@ -7,7 +7,7 @@ import { DrawerModule } from 'primeng/drawer';
 import { ProfileComponent } from '../../components/profile/profile.component';
 import { filter } from 'rxjs';
 import { CommonModule } from '@angular/common';
-import { ApplicationSettingService } from '../../components/services/application-setting.service';
+import { ApplicationSettingService } from '../../services/application-setting.service';
 @Component({
   selector: 'app-header',
   standalone: true,

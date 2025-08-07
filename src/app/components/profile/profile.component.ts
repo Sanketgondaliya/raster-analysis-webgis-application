@@ -3,13 +3,13 @@ import { InputTextModule } from 'primeng/inputtext';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Select } from "primeng/select";
 import { ButtonModule } from 'primeng/button';
-import { GeoserverService } from '../services/geoserver.service';
-import { ToastService } from '../services/toast.service';
-import { MapService } from '../services/map.service'; // adjust path
+import { GeoserverService } from '../../services/geoserver.service';
+import { ToastService } from '../../services/toast.service';
+import { MapService } from '../../services/map.service';
+import { ApplicationSettingService } from '../../services/application-setting.service';
 import TileLayer from 'ol/layer/Tile';
 import ImageLayer from 'ol/layer/Image';
 import { ImageWMS, TileWMS } from 'ol/source';
-import { ApplicationSettingService } from '../services/application-setting.service';
 import { Router } from '@angular/router';
 
 

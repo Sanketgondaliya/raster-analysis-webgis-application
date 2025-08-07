@@ -19,9 +19,9 @@ import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
 
 // Services
-import { GeoserverService } from '../services/geoserver.service';
-import { ToastService } from '../services/toast.service';
-import { MapService } from '../services/map.service';
+import { GeoserverService } from '../../services/geoserver.service';
+import { ToastService } from '../../services/toast.service';
+import { MapService } from '../../services/map.service';
 
 // OpenLayers
 import { WKB } from 'ol/format';

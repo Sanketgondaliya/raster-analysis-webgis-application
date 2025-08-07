@@ -7,9 +7,9 @@ import { ButtonModule } from 'primeng/button';
 import { PasswordModule } from 'primeng/password';
 import { InputTextModule } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
-import { GeoserverService } from '../services/geoserver.service';
-import { ToastService } from '../services/toast.service';
-import { MapService } from '../services/map.service'; // Adjust path if needed
+import { GeoserverService } from '../../services/geoserver.service';
+import { ToastService } from '../../services/toast.service';
+import { MapService } from '../../services/map.service';
 import { AbstractControl, ValidatorFn } from '@angular/forms';
 
 interface Tab {

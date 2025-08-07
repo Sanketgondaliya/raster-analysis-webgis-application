@@ -2,7 +2,7 @@ import { Component, AfterViewInit, OnDestroy } from '@angular/core';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { MapService } from '../../components/services/map.service';
+import { MapService } from '../../services/map.service';
 import { ObjectEvent } from 'ol/Object';
 import TileLayer from 'ol/layer/Tile';
 import { TileWMS } from 'ol/source';

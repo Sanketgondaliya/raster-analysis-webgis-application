@@ -10,9 +10,9 @@ import Map from 'ol/Map';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
 
-import { ToastService } from '../services/toast.service';
-import { GeoserverService } from '../services/geoserver.service';
-import { MapService } from '../services/map.service';
+import { ToastService } from '../../services/toast.service';
+import { GeoserverService } from '../../services/geoserver.service';
+import { MapService } from '../../services/map.service';
 import { transformExtent } from 'ol/proj';
 
 interface TabItem {
