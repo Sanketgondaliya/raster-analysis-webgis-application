@@ -25,6 +25,13 @@
               </p-checkbox>
 
               <label [for]="item.id" class="ml-2">{{ item.name }}</label>
+              <button *ngIf="tab.label === 'Temporal'" 
+                pButton pRipple 
+                icon="pi pi-search" 
+                class="p-button-rounded p-button-text p-button-sm ml-2"
+                (click)="zoomToLayer(item.name, tab.label, $event)"
+                pTooltip="Zoom to layer" tooltipPosition="top">
+              </button>
             </p-accordion-header>
             <p-accordion-content>
               <p class="m-0">ID: {{ item.id }}</p>
@@ -46,6 +53,12 @@
                 [inputId]="ds.name + '_' + table.name">
               </p-checkbox>
               <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>
+              <button pButton pRipple 
+                icon="pi pi-search" 
+                class="p-button-rounded p-button-text p-button-sm ml-2"
+                (click)="zoomToLayer(table.name, ds.name, $event)"
+                pTooltip="Zoom to layer" tooltipPosition="top">
+              </button>
             </div>
           </p-accordion-content>
         </p-accordion-panel>

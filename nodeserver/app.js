@@ -1098,6 +1098,30 @@ app.post('/api/get-chart-data', async (req, res) => {
 });
 
 
+/**
+ * POST /api/get-column-types
+ * Description: Retrieves column names and their data types from a specified table in a PostgreSQL database.
+ * 
+ * Request Body Parameters:
+ *   - host: (string) Database host (required)
+ *   - port: (number) Database port (required)
+ *   - user: (string) Database user (required)
+ *   - dbpassword: (string) Database password (required)
+ *   - projectName: (string) Name of the database (required)
+ *   - schemaName: (string) Schema name containing the table (required)
+ *   - tableName: (string) Table name to get columns from (required)
+ * 
+ * Response:
+ *   - success: (boolean) Indicates whether the operation was successful
+ *   - columnTypes: (object) A key-value mapping of column names to their data types (returned only if successful)
+ *   - debug: (object) Debug information such as schema name, table name, and column count
+ *   - message: (string) Error message (returned only if failed)
+ *   - stack: (string) Error stack trace (returned only if failed)
+ * 
+ * Error Codes:
+ *   - 404: Table not found
+ *   - 500: Server error (e.g., DB connection issues or query failure)
+ */
 
 app.post('/api/get-column-types', async (req, res) => {
   try {
