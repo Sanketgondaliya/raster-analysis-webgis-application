@@ -1097,6 +1097,79 @@ app.post('/api/get-chart-data', async (req, res) => {
     }
 });
 
+
+
+app.post('/api/get-column-types', async (req, res) => {
+  try {
+    const { host, port, user, dbpassword, projectName, schemaName, tableName } = req.body;
+    
+    console.log('Received request with parameters:', {
+      host, port, user, projectName, schemaName, tableName
+    });
+
+    // Connect to your database
+    const pool = new Pool({
+      host,
+      port,
+      user,
+      password: dbpassword,
+      database: projectName,
+    });
+    
+    // First verify the table exists
+    const tableExistsQuery = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = $1 AND table_name = $2
+      );
+    `;
+    
+    const existsResult = await pool.query(tableExistsQuery, [schemaName, tableName]);
+    console.log('Table exists check:', existsResult.rows[0].exists);
+
+    if (!existsResult.rows[0].exists) {
+      return res.status(404).json({
+        success: false,
+        message: `Table ${schemaName}.${tableName} not found`
+      });
+    }
+
+    // Query to get column types
+    const query = `
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_schema = $1 AND table_name = $2
+      ORDER BY ordinal_position;
+    `;
+    
+    console.log('Executing column query with:', [schemaName, tableName]);
+    const result = await pool.query(query, [schemaName, tableName]);
+    console.log('Query results:', result.rows);
+    
+    // Format the response
+    const columnTypes = {};
+    result.rows.forEach(row => {
+      columnTypes[row.column_name] = row.data_type;
+    });
+    
+    res.json({ 
+      success: true, 
+      columnTypes,
+      debug: {
+        schemaName,
+        tableName,
+        columnCount: result.rowCount
+      }
+    });
+  } catch (error) {
+    console.error('Error getting column types:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      stack: error.stack 
+    });
+  }
+});
 // Start server
 app.listen(port, () => {
 	console.log(`Server running on port ${port}`);

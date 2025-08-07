@@ -1,1 +1,69 @@
-<p>query-module works!</p>
+<p-tabs [(value)]="selectedTab" (valueChange)="onTabChange($event)">
+    <p-tablist>
+        <p-tab *ngFor="let tab of tabs" [value]="tab.value">
+            {{ tab.label }}
+        </p-tab>
+    </p-tablist>
+
+    <p-tabpanels>
+        <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value">
+            <ng-container *ngIf="tab.tables.length > 0; else noTables">
+                <div class="query-tool p-3">
+                    <div class="query-form">
+                        <div class="form-group mb-3">
+                            <label for="queryTableSelect" class="form-label">Select Table:</label>
+                            <p-select [options]="tab.tables" [(ngModel)]="selectedTable" optionLabel="tableName" 
+                                (onChange)="updateAttributes()" [style]="{'width':'100%'}"></p-select>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="attributeSelect" class="form-label">Select attribute:</label>
+                            <p-select [options]="attributes" [(ngModel)]="selectedAttribute" 
+                                (onChange)="updateConditionOptions()" [style]="{'width':'100%'}"></p-select>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="filterCondition" class="form-label">Select Condition:</label>
+                            <p-select [options]="conditions" [(ngModel)]="selectedCondition" 
+                                [style]="{'width':'100%'}"></p-select>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="queryValue" class="form-label">Enter Value:</label>
+                            <input type="{{valueInputType}}" pInputText [(ngModel)]="queryValue" class="w-full" />
+                        </div>
+
+                        <div class="button-group flex gap-2">
+                            <button pButton type="button" label="Apply Query" (click)="applyQuery()" 
+                                class="flex-grow-1"></button>
+                            <button pButton type="button" label="Reset" (click)="resetQuery()" 
+                                class="p-button-secondary"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <p-table [value]="filteredData || selectedTable?.data" [paginator]="true" [rows]="10">
+                    <ng-template pTemplate="header">
+                        <tr>
+                            <th>Actions</th>
+                            <th *ngFor="let col of selectedTable?.columns">{{ col.header }}</th>
+                        </tr>
+                    </ng-template>
+                    <ng-template pTemplate="body" let-row>
+                        <tr>
+                            <td>
+                                <button pButton pRipple type="button" icon="pi pi-search" 
+                                    (click)="zoomToFeature(row['geom'])"></button>
+                            </td>
+                            <td *ngFor="let col of selectedTable?.columns">{{ row[col.field] }}</td>
+                        </tr>
+                    </ng-template>
+                </p-table>
+            </ng-container>
+
+            <ng-template #noTables>
+                <p>No checked layers available for this datastore.</p>
+            </ng-template>
+        </p-tabpanel>
+    </p-tabpanels>
+</p-tabs>

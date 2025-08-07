@@ -125,6 +125,7 @@ export class LayerSwitchderComponent {
         if (this.wmsLayers[key]) continue;
 
         const wmsLayer = new TileLayer({
+          className:key,
           source: new TileWMS({
             url: `${geoserverUrl}${this.selectedProject}/wms`,
             params: {
