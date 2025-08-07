@@ -217,10 +217,27 @@ export class DashboardComponent {
     const xColumn = selected.x!;
     const yColumn = selected.y!;
     const analysisType = this.selectedAnalysisType;
-    this.geoserverService.getChartData(dbName, schemaName, tableName, xColumn, yColumn, chartType, analysisType).subscribe({
-      next: (response) => {
-        const labels = response.map(item => item.label);
-        const data = response.map(item => Number(item.value));
+    const databaseConfig = JSON.parse(localStorage.getItem('databaseConfig') || '{}');
+    this.toastService.showSuccess('Project Created!');
+    const ProjectPayload = {
+      projectName: this.selectedProject,
+      host: databaseConfig.databaseHost,
+      port: databaseConfig.databasePort,
+      user: databaseConfig.databaseUsername,
+      dbpassword: databaseConfig.databasePassword,
+      database: databaseConfig.databaseDefaultDb,
+      xColumn:xColumn,
+      yColumn:yColumn,
+      chartType:chartType,
+      analysisType:analysisType,
+      tableName:tableName,
+      schemaName:schemaName,
+      dbName:dbName
+    };
+    this.geoserverService.getChartData(ProjectPayload).subscribe({
+      next: (response:any) => {
+        const labels = response.data.map((item: { label: any; }) => item.label);
+        const data = response.data.map((item: { value: any; }) => Number(item.value));
 
 
         // Update chartDataMap to show canvas
@@ -287,13 +304,14 @@ export class DashboardComponent {
       tableName: tableName
     };
     this.geoserverService.getColumnsByTable(ProjectPayload)
-      .subscribe((columns: any[]) => {
+      .subscribe((data: { columns: { column_name: string; data_type: string }[] }) => {
         const supportedTypes = [
           ...this.dataTypeSupportChart.numeric,
           ...this.dataTypeSupportChart.string
         ];
-
-        const filtered = columns.filter(col =>
+        debugger
+        if (!data.columns) return;
+        const filtered = data.columns.filter(col =>
           col.column_name && supportedTypes.includes(col.data_type.toLowerCase())
         );
 

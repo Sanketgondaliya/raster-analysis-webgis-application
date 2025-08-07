@@ -882,101 +882,294 @@ app.post('/api/get-tables', async (req, res) => {
 	}
 });
 
-/*optiizatiopn pending */
+/**
+ * POST /api/get-columns
+ * Description: Gets all columns with their data types from a specified table
+ * Request Body Parameters:
+ *   - host: Database host (required)
+ *   - port: Database port (required)
+ *   - user: Database user (required)
+ *   - dbpassword: Database password (required)
+ *   - dbName: Database name (required)
+ *   - schemaName: Schema name (required)
+ *   - tableName: Table name (required)
+ */
 app.post('/api/get-columns', async (req, res) => {
-	const { dbName, schemaName, tableName } = req.body;
+    // Validate required parameters
+    const requiredParams = ['host', 'port', 'user', 'dbpassword', 'dbName', 'schemaName', 'tableName'];
+    const missingParams = requiredParams.filter(param => !req.body[param]);
 
-	if (!dbName || !schemaName || !tableName) {
-		return res.status(400).json({ error: 'Missing required fields.' });
-	}
+    if (missingParams.length > 0) {
+        return res.status(400).json({
+            success: false,
+            message: `Missing required parameters: ${missingParams.join(', ')}`
+        });
+    }
 
-	const client = new Pool({
-		host: 'localhost',
-		port: 5432,
-		user: 'postgres',
-		password: '123',
-		database: dbName
-	});
+    const { host, port, user, dbpassword, dbName, schemaName, tableName } = req.body;
+    let client;
 
-	try {
-		const query = `
-      SELECT column_name, data_type
-      FROM information_schema.columns
+    try {
+        // Create and connect to client
+        client = new Client({
+            host,
+            port: parseInt(port),
+            user,
+            password: dbpassword,
+            database: dbName,
+            ssl: false
+        });
+
+        await client.connect();
+
+        // Get columns with extended information
+        const query = `
+            SELECT 
+                column_name, 
+                data_type,
+                is_nullable,
+                column_default,
+                character_maximum_length,
+                numeric_precision,
+                numeric_scale
+            FROM information_schema.columns
+            WHERE table_schema = $1 
+            AND table_name = $2
+            ORDER BY ordinal_position;
+        `;
+
+        const result = await client.query(query, [schemaName, tableName]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: `Table '${schemaName}.${tableName}' not found or has no columns`
+            });
+        }
+
+        res.json({
+            success: true,
+            message: `Found ${result.rows.length} columns in table '${schemaName}.${tableName}'`,
+            columns: result.rows
+        });
+
+    } catch (err) {
+        console.error('Database operation error:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching columns',
+            error: err.message
+        });
+    } finally {
+        if (client) {
+            try {
+                await client.end();
+            } catch (err) {
+                console.error('Error closing database connection:', err);
+            }
+        }
+    }
+});
+
+/**
+ * POST /api/get-chart-data
+ * Description: Gets formatted data for visualization charts
+ * Request Body Parameters:
+ *   - host: Database host (required)
+ *   - port: Database port (required)
+ *   - user: Database user (required)
+ *   - dbpassword: Database password (required)
+ *   - dbName: Database name (required)
+ *   - schemaName: Schema name (required)
+ *   - tableName: Table name (required)
+ *   - xColumn: Column for X-axis (required)
+ *   - yColumn: Column for Y-axis (required)
+ *   - chartType: Type of chart (pie|bar|column|line) (required)
+ */
+app.post('/api/get-chart-data', async (req, res) => {
+    try {
+        const { 
+            host, port, user, dbpassword, dbName,
+            schemaName, tableName, xColumn, yColumn, chartType
+        } = req.body;
+
+        // Validate required parameters
+        const requiredParams = ['host', 'port', 'user', 'dbpassword', 'dbName',
+                              'schemaName', 'tableName', 'xColumn', 'yColumn', 'chartType'];
+        const missingParams = requiredParams.filter(param => !req.body[param]);
+        
+        if (missingParams.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Missing required parameters: ${missingParams.join(', ')}`
+            });
+        }
+
+        // Validate identifiers to prevent SQL injection
+        const identifierRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+        const invalidIdentifiers = [schemaName, tableName, xColumn, yColumn]
+            .filter(v => !identifierRegex.test(v));
+        
+        if (invalidIdentifiers.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid characters in identifiers: ${invalidIdentifiers.join(', ')}`
+            });
+        }
+
+        // Validate chart type
+        const validChartTypes = ['pie', 'bar', 'column', 'line'];
+        if (!validChartTypes.includes(chartType)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid chart type. Must be one of: ${validChartTypes.join(', ')}`
+            });
+        }
+
+        const client = new Client({
+            host,
+            port: parseInt(port),
+            user,
+            password: dbpassword,
+            database: dbName,
+            ssl: false
+        });
+
+        await client.connect();
+
+        // Build query based on chart type
+        let query;
+        if (chartType === 'pie' || chartType === 'bar' || chartType === 'column') {
+            query = `
+                SELECT 
+                    "${xColumn}" AS label, 
+                    COUNT("${yColumn}")::integer AS value
+                FROM "${schemaName}"."${tableName}"
+                WHERE "${xColumn}" IS NOT NULL
+                GROUP BY "${xColumn}"
+                ORDER BY COUNT("${yColumn}") DESC
+                LIMIT 50;
+            `;
+        } else if (chartType === 'line') {
+            query = `
+                SELECT 
+                    "${xColumn}" AS label, 
+                    SUM(CAST("${yColumn}" AS NUMERIC)) AS value
+                FROM "${schemaName}"."${tableName}"
+                WHERE "${xColumn}" IS NOT NULL
+                GROUP BY "${xColumn}"
+                ORDER BY "${xColumn}"
+                LIMIT 1000;
+            `;
+        }
+
+        console.log('Executing query:', query);
+        const result = await client.query(query);
+        await client.end();
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No data available for the specified columns and chart type'
+            });
+        }
+
+        // Convert numeric strings to numbers for chart libraries
+        const formattedData = result.rows.map(item => ({
+            label: item.label,
+            value: Number(item.value) || 0
+        }));
+
+        res.json({
+            success: true,
+            message: `Retrieved ${formattedData.length} data points for ${chartType} chart`,
+            chartType,
+            data: formattedData
+        });
+
+    } catch (err) {
+        console.error('Database operation error:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching chart data',
+            error: err.message
+        });
+    }
+});
+
+
+
+app.post('/api/get-column-types', async (req, res) => {
+  try {
+    const { host, port, user, dbpassword, projectName, schemaName, tableName } = req.body;
+    
+    console.log('Received request with parameters:', {
+      host, port, user, projectName, schemaName, tableName
+    });
+
+    // Connect to your database
+    const pool = new Pool({
+      host,
+      port,
+      user,
+      password: dbpassword,
+      database: projectName,
+    });
+    
+    // First verify the table exists
+    const tableExistsQuery = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = $1 AND table_name = $2
+      );
+    `;
+    
+    const existsResult = await pool.query(tableExistsQuery, [schemaName, tableName]);
+    console.log('Table exists check:', existsResult.rows[0].exists);
+
+    if (!existsResult.rows[0].exists) {
+      return res.status(404).json({
+        success: false,
+        message: `Table ${schemaName}.${tableName} not found`
+      });
+    }
+
+    // Query to get column types
+    const query = `
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
       WHERE table_schema = $1 AND table_name = $2
       ORDER BY ordinal_position;
     `;
-
-		const result = await client.query(query, [schemaName, tableName]);
-
-		res.json(result.rows);
-	} catch (err) {
-		console.error('Error fetching columns:', err);
-		res.status(500).json({ error: 'Failed to fetch columns.' });
-	} finally {
-		client.end(); // close the dynamic connection
-	}
+    
+    console.log('Executing column query with:', [schemaName, tableName]);
+    const result = await pool.query(query, [schemaName, tableName]);
+    console.log('Query results:', result.rows);
+    
+    // Format the response
+    const columnTypes = {};
+    result.rows.forEach(row => {
+      columnTypes[row.column_name] = row.data_type;
+    });
+    
+    res.json({ 
+      success: true, 
+      columnTypes,
+      debug: {
+        schemaName,
+        tableName,
+        columnCount: result.rowCount
+      }
+    });
+  } catch (error) {
+    console.error('Error getting column types:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      stack: error.stack 
+    });
+  }
 });
-
-app.post('/api/get-chart-data', async (req, res) => {
-	const { dbName, schemaName, tableName, xColumn, yColumn, chartType } = req.body;
-
-	if (!dbName || !schemaName || !tableName || !xColumn || !yColumn || !chartType) {
-		return res.status(400).json({ error: 'Missing required fields.' });
-	}
-
-	const identifierRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-	if (![schemaName, tableName, xColumn, yColumn].every(v => identifierRegex.test(v))) {
-		return res.status(400).json({ error: 'Invalid characters in identifiers.' });
-	}
-
-	const client = new Pool({
-		host: 'localhost',
-		port: 5432,
-		user: 'postgres',
-		password: '123',
-		database: dbName,
-	});
-
-	let query = '';
-	try {
-		switch (chartType) {
-			case 'pie':
-			case 'bar':
-			case 'column':
-				// Grouped count of Y by X (e.g., departments and number of employees)
-				query = `
-          SELECT "${xColumn}" AS label, COUNT("${yColumn}") AS value
-          FROM "${schemaName}"."${tableName}"
-          GROUP BY "${xColumn}"
-          ORDER BY "${xColumn}";
-        `;
-				break;
-
-			case 'line':
-				// If Y is numeric (e.g., monthly sales), calculate total or average
-				query = `
-          SELECT "${xColumn}" AS label, SUM(CAST("${yColumn}" AS NUMERIC)) AS value
-          FROM "${schemaName}"."${tableName}"
-          GROUP BY "${xColumn}"
-          ORDER BY "${xColumn}";
-        `;
-				break;
-
-			default:
-				return res.status(400).json({ error: 'Unsupported chart type.' });
-		}
-
-		console.log('Query:', query);
-		const result = await client.query(query);
-		res.json(result.rows);
-	} catch (err) {
-		console.error('Error fetching chart data:', err);
-		res.status(500).json({ error: 'Failed to fetch chart data.' });
-	} finally {
-		client.end();
-	}
-});
-
 // Start server
 app.listen(port, () => {
 	console.log(`Server running on port ${port}`);
