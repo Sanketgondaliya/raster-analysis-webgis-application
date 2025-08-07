@@ -143,6 +143,7 @@ export class AttributeTableComponent implements AfterViewInit, AfterViewChecked 
     this.geoserverService.getTables(ProjectPayload).subscribe({
       next: (response) => {
         if (response.success) {
+          debugger
           tab.tables = response.tables
             .filter((table: any) => {
               const key = `${tab.value}.${table.tableName}`;
