@@ -336,68 +336,11 @@ export class QueryModuleComponent implements OnInit, AfterViewInit, AfterViewChe
     this.queryValue = '';
   }
 
-  applyQuery(): void {
-    var me=this;
-    if (!this.selectedTable || !this.selectedAttribute || !this.selectedCondition ||
-      (this.queryValue === '' && !['isNull', 'isNotNull'].includes(this.selectedCondition.value))) {
-      this.toastService.showError('Please fill all query fields');
-      return;
-    }
 
-    const columnType = (this.columnTypes[this.selectedAttribute] || '').toLowerCase();
-    const isNumeric = columnType.includes('int') ||
-      columnType.includes('numeric') ||
-      columnType.includes('decimal') ||
-      columnType.includes('float') ||
-      columnType.includes('double') ||
-      columnType.includes('precision');
-
-    this.filteredData = this.selectedTable.data.filter((row: any) => {
-      const featureValue = row[me.selectedAttribute];
-
-      // Handle null values consistently
-      if (featureValue === null || featureValue === undefined) {
-        return this.selectedCondition!.value === 'isNull';
-      }
-
-      switch (this.selectedCondition) {
-        case '=':
-          return isNumeric ? parseFloat(featureValue) == parseFloat(this.queryValue) :
-            String(featureValue) === String(this.queryValue);
-        case '!=':
-          return isNumeric ? parseFloat(featureValue) != parseFloat(this.queryValue) :
-            String(featureValue) !== String(this.queryValue);
-        case '>':
-          return isNumeric ? parseFloat(featureValue) > parseFloat(this.queryValue) :
-            String(featureValue) > String(this.queryValue);
-        case '<':
-          return isNumeric ? parseFloat(featureValue) < parseFloat(this.queryValue) :
-            String(featureValue) < String(this.queryValue);
-        case '>=':
-          return isNumeric ? parseFloat(featureValue) >= parseFloat(this.queryValue) :
-            String(featureValue) >= String(this.queryValue);
-        case '<=':
-          return isNumeric ? parseFloat(featureValue) <= parseFloat(this.queryValue) :
-            String(featureValue) <= String(this.queryValue);
-        case 'contains':
-          return String(featureValue).toLowerCase().includes(String(this.queryValue).toLowerCase());
-        case 'startsWith':
-          return String(featureValue).toLowerCase().startsWith(String(this.queryValue).toLowerCase());
-        case 'endsWith':
-          return String(featureValue).toLowerCase().endsWith(String(this.queryValue).toLowerCase());
-        case 'isNull':
-          return featureValue === null || featureValue === undefined || featureValue === '';
-        case 'isNotNull':
-          return featureValue !== null && featureValue !== undefined && featureValue !== '';
-        default:
-          return true;
-      }
-    });
-
-    this.applyCqlFilterToLayer();
-  }
 
   applyCqlFilterToLayer(): void {
+    var me = this;
+    debugger
     if (!this.selectedTable || !this.selectedTab || !this.selectedAttribute || !this.selectedCondition) return;
 
     const layerName = `${this.selectedTab}.${this.selectedTable.tableName}`;
@@ -420,7 +363,7 @@ export class QueryModuleComponent implements OnInit, AfterViewInit, AfterViewChe
           cqlFilter = `${this.selectedAttribute} = '${this.queryValue}'`;
           break;
         case '!=':
-          cqlFilter = `${this.selectedAttribute} != '${this.queryValue}'`;
+          cqlFilter = `NOT ${this.selectedAttribute} = '${this.queryValue}'`;
           break;
         case '>':
         case '<':
@@ -429,13 +372,13 @@ export class QueryModuleComponent implements OnInit, AfterViewInit, AfterViewChe
           cqlFilter = `${this.selectedAttribute}${this.selectedCondition}${parseFloat(this.queryValue)}`;
           break;
         case 'contains':
-          cqlFilter = `${this.selectedAttribute} LIKE '%${this.queryValue}%'`;
+          cqlFilter = `${this.selectedAttribute} ILIKE '%${this.queryValue}%'`;
           break;
         case 'startsWith':
-          cqlFilter = `${this.selectedAttribute} LIKE '${this.queryValue}%'`;
+          cqlFilter = `${this.selectedAttribute} ILIKE '${this.queryValue}%'`;
           break;
         case 'endsWith':
-          cqlFilter = `${this.selectedAttribute} LIKE '%${this.queryValue}'`;
+          cqlFilter = `${this.selectedAttribute} ILIKE '%${this.queryValue}'`;
           break;
       }
     }
@@ -457,41 +400,7 @@ export class QueryModuleComponent implements OnInit, AfterViewInit, AfterViewChe
     this.mapService.resetAllLayerFilters();
   }
 
-  zoomToFeature(geom: any): void {
-    if (!geom) {
-      console.error('Missing geometry');
-      return;
-    }
 
-    const map = this.mapService.getMap();
-    if (!map) {
-      console.error('Map is not initialized');
-      return;
-    }
-
-    try {
-      const wkbFormat = new WKB();
-      const feature = wkbFormat.readFeature(geom, {
-        dataProjection: 'EPSG:4326',
-        featureProjection: map.getView().getProjection()
-      });
-
-      const geometry = feature.getGeometry();
-      if (!geometry) {
-        console.error('Invalid geometry');
-        return;
-      }
-
-      const extent = geometry.getExtent();
-      map.getView().fit(extent, {
-        size: map.getSize(),
-        padding: [50, 50, 50, 50],
-        duration: 1000
-      });
-    } catch (error) {
-      console.error('Error zooming to feature:', error);
-    }
-  }
 
   setInitialTabSelection(): void {
     if (this.tabs.length > 0 && !this.selectedTab) {
