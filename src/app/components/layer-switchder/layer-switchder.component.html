@@ -11,18 +11,12 @@
         <p-accordion [multiple]="true">
           <p-accordion-panel *ngFor="let item of tab.items" [value]="item.id">
             <p-accordion-header>
-              <p-radioButton *ngIf="tab.label === 'Basemap'" name="basemapGroup"
-                [value]="item.name" [(ngModel)]="selectedBasemap"
-                (ngModelChange)="onBasemapChange($event)"
-                (click)="$event.stopPropagation()"
-                [inputId]="item.id">
+              <p-radioButton *ngIf="tab.label === 'Basemap'" name="basemapGroup" [value]="item.name"
+                [(ngModel)]="selectedBasemap" (ngModelChange)="onBasemapChange($event)"
+                (click)="$event.stopPropagation()" [inputId]="item.id">
               </p-radioButton>
 
-              <p-checkbox *ngIf="tab.label === 'Temporal'" [binary]="true"
-                [(ngModel)]="item.checked"
-                (onChange)="onItemClick($event,item.name, tab.label)"
-                [inputId]="item.id">
-              </p-checkbox>
+
 
               <label [for]="item.id" class="ml-2">{{ item.name }}</label>
             </p-accordion-header>
@@ -40,10 +34,8 @@
           <p-accordion-header>{{ ds.name }}</p-accordion-header>
           <p-accordion-content>
             <div *ngFor="let table of ds.tables" class="flex align-items-center gap-2 ml-3 my-2">
-              <p-checkbox [binary]="true"
-                [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
-                (onChange)="onItemClick($event,table.name, ds.name)"
-                [inputId]="ds.name + '_' + table.name">
+              <p-checkbox [binary]="true" [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
+                (onChange)="onItemClick($event,table.name, ds.name)" [inputId]="ds.name + '_' + table.name">
               </p-checkbox>
               <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>
             </div>
@@ -51,5 +43,23 @@
         </p-accordion-panel>
       </p-accordion>
     </p-tabpanel>
+    <p-tabpanel *ngIf="value === 2" [value]="2">
+      <input type="file" (change)="onFileUpload($event)" accept=".geojson,.json,.kml,.gml" class="my-2" />
+      <p-accordion [multiple]="true" *ngIf="uploadedLayers.length">
+        <p-accordion-panel *ngFor="let layer of uploadedLayers" [value]="layer.id">
+          <p-accordion-header>
+            <p-checkbox [binary]="true" [(ngModel)]="layer.visible" (onChange)="toggleUploadedLayer(layer)"
+              [inputId]="layer.id">
+            </p-checkbox>
+            <label [for]="layer.id" class="ml-2">{{ layer.name }}</label>
+          </p-accordion-header>
+          <p-accordion-content>
+            <button pButton pRipple type="button" label="Remove" icon="pi pi-trash" class="p-button-sm p-button-danger"
+              (click)="removeUploadedLayer(layer)"></button>
+          </p-accordion-content>
+        </p-accordion-panel>
+      </p-accordion>
+    </p-tabpanel>
+
   </p-tabpanels>
 </p-tabs>
