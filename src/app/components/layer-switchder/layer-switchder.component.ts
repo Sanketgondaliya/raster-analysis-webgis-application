@@ -58,7 +58,6 @@ interface DataStore {
     CheckboxModule,
     RadioButtonModule,
     ButtonModule,
-    ButtonModule,
     RippleModule,
     TooltipModule
   ],
@@ -229,13 +228,12 @@ export class LayerSwitchderComponent {
     const tableInfo = this.checkedTables[key];
     const itemChecked = event.checked;
     let allLayers = this.map.getAllLayers();
+    
     for (let dataCount = 0; dataCount < allLayers.length; dataCount++) {
       const element = allLayers[dataCount];
       if(element.getClassName() === key){
-      if (element.getClassName() === key) {
         element.setVisible(itemChecked)
       }
-
     }
     
     if (this.checkedTables[key]) {
@@ -304,4 +302,143 @@ export class LayerSwitchderComponent {
       }
     });
   }
+
+
+  // Add this to your component class
+  uploadedLayers: UploadedLayer[] = [];
+
+  // Update your onFileUpload method
+ onFileUpload(event: any): void {
+  const file: File = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const content = reader.result as string;
+    let format;
+    let vectorSource;
+    let dataProjection = 'EPSG:4326'; // Default projection
+
+    try {
+      const geojson = JSON.parse(content);
+      
+      // Enhanced CRS detection
+      if (geojson.crs) {
+        if (geojson.crs.type === 'name') {
+          const crsCode = geojson.crs.properties.name;
+          
+          // Handle both standard and URN format EPSG codes
+          if (crsCode.startsWith('EPSG:')) {
+            dataProjection = crsCode;
+          } else if (crsCode.startsWith('urn:ogc:def:crs:EPSG::')) {
+            const epsgCode = crsCode.split('::')[1];
+            dataProjection = `EPSG:${epsgCode}`;
+          }
+        } else if (geojson.crs.type === 'EPSG') {
+          dataProjection = `EPSG:${geojson.crs.properties.code}`;
+        }
+      }
+      // KML is always in EPSG:4326
+      else if (file.name.endsWith('.kml')) {
+        dataProjection = 'EPSG:4326';
+      }
+    } catch (e) {
+      console.log('File is not JSON or no CRS information found');
+    }
+
+    // Rest of your file handling code remains the same...
+    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
+      format = new GeoJSON();
+    } else if (file.name.endsWith('.kml')) {
+      format = new KML();
+    } else if (file.name.endsWith('.gml')) {
+      format = new GML({ featureNS: 'http://www.opengis.net/gml', featureType: 'feature' });
+    } else {
+      this.toastService.showError('Unsupported file type');
+      return;
+    }
+
+    try {
+      // Try with detected projection first
+      let features;
+      try {
+        features = format.readFeatures(content, {
+          dataProjection: dataProjection,
+          featureProjection: 'EPSG:3857'
+        });
+      } catch (e) {
+        console.warn(`Failed with ${dataProjection}, trying EPSG:4326`, e);
+        features = format.readFeatures(content, {
+          dataProjection: 'EPSG:4326',
+          featureProjection: 'EPSG:3857'
+        });
+        dataProjection = 'EPSG:4326';
+      }
+
+      // Rest of your layer creation code...
+      vectorSource = new VectorSource({ features });
+
+      const vectorLayer = new VectorLayer({
+        source: vectorSource,
+        style: new Style({
+          stroke: new Stroke({
+            color: '#007BFF',
+            width: 2
+          }),
+          fill: new Fill({
+            color: 'rgba(0, 123, 255, 0.2)'
+          }),
+          image: new CircleStyle({
+            radius: 5,
+            fill: new Fill({ color: '#007BFF' }),
+            stroke: new Stroke({ color: '#ffffff', width: 1 })
+          })
+        })
+      });
+
+      this.uploadedLayers.push({
+        id: `uploaded-${Date.now()}`,
+        name: file.name,
+        visible: true,
+        layer: vectorLayer,
+        projection: dataProjection
+      });
+
+      this.map.addLayer(vectorLayer);
+      
+      try {
+        this.map.getView().fit(vectorSource.getExtent(), {
+          duration: 1000,
+          padding: [50, 50, 50, 50]
+        });
+      } catch (e) {
+        console.warn('Could not fit view to layer extent', e);
+      }
+
+      this.toastService.showSuccess(`Data loaded (CRS: ${dataProjection})`);
+    } catch (error) {
+      console.error('Error parsing file:', error);
+      this.toastService.showError('Failed to parse file. Check coordinate system.');
+    }
+  };
+
+  reader.onerror = (error) => {
+    console.error('File reading error:', error);
+    this.toastService.showError('Error reading file');
+  };
+
+  reader.readAsText(file);
+}
+
+  // Add these new methods
+  toggleUploadedLayer(layer: UploadedLayer): void {
+    layer.layer.setVisible(layer.visible);
+  }
+
+  removeUploadedLayer(layer: UploadedLayer): void {
+    this.map.removeLayer(layer.layer);
+    this.uploadedLayers = this.uploadedLayers.filter(l => l.id !== layer.id);
+  }
+
 }
