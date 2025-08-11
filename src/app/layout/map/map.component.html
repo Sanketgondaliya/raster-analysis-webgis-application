@@ -1,12 +1,6 @@
-<!-- OL container -->
-<div class="map-container" *ngIf="mapMode === 'ol'">
-  <div id="map" class="map"></div>
-</div>
+<div id="map" class="map-container" [hidden]="mapMode !== 'ol'"></div>
+<div id="cesiumContainer" class="map-container" [hidden]="mapMode !== 'cesium'"></div>
 
-<!-- Cesium container -->
-<div class="map-container" *ngIf="mapMode === 'cesium'">
-  <div id="cesiumContainer" class="map"></div>
-</div>
 
 
 <div id="popup" class="ol-popup">

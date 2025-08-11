@@ -41,13 +41,10 @@ export class HeaderComponent {
     this.isSearchDrawerVisible = true;
   }
   is3DView = false; // default 2D
-
   toggle2D3D() {
     this.is3DView = !this.is3DView;
     this.mapService.setMode(this.is3DView ? '3D' : '2D');
   }
-
-
 
   openPanel(panel: string) {
     this.panelSelect.emit(panel);

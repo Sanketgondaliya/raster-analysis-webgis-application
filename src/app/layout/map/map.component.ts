@@ -40,27 +40,48 @@ export class MapComponent implements AfterViewInit {
   ) { }
 
   ngAfterViewInit(): void {
-    this.mapService.mode$.subscribe(mode => {
+    this.modeSub = this.mapService.mode$.subscribe(mode => {
       this.mapMode = mode === '2D' ? 'ol' : 'cesium';
       this.switchModeInternal();
     });
+
+    // Initialize with default mode
+    this.switchModeInternal();
   }
 
-  private switchModeInternal(): void {
-    if (this.mapMode === 'ol') {
-      this.initializeMap();
-    } else {
-     /// this.destroyOlMap();
-      this.cesiumService.initCesium();
-    }
-  }
+ private switchModeInternal(): void {
+  if (this.mapMode === 'ol') {
+    this.cesiumService.destroyCesium();
 
-  private destroyOlMap() {
+    // Wait for DOM render before initializing OL map
+    setTimeout(() => this.initializeMap(), 0);
+  } else {
+    this.destroyOlMap();
+    setTimeout(() => this.cesiumService.initCesium('cesiumContainer'), 0);
+  }
+}
+
+
+  private destroyOlMap(): void {
     if (this.map) {
-      this.map.setTarget('');
+      this.map.setTarget(undefined); // ✅ Type-safe
       this.map = null as any;
     }
   }
+
+  private destroyMap(): void {
+    if (this.mapMode === 'ol') {
+      this.destroyOlMap();
+    } else {
+      this.cesiumService.destroyCesium();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.modeSub?.unsubscribe();
+    this.destroyMap();
+  }
+
 
 
   onTabChange(value: string | number) {
@@ -195,13 +216,6 @@ export class MapComponent implements AfterViewInit {
 
     localStorage.setItem('mapView', JSON.stringify(viewData));
   }
-   private destroyMap(): void {
-    if (this.map) {
-      this.map.setTarget(undefined);
-    }
-  }
-  ngOnDestroy(): void {
-    this.modeSub?.unsubscribe();
-    this.destroyMap();
-  }
+
+
 }
