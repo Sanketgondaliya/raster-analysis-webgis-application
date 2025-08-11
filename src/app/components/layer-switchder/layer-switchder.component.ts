@@ -46,6 +46,12 @@ interface DataStore {
   name: string;
   tables: { name: string; bbox: any }[];
 }
+interface WmsLayerItem {
+  name: string;
+  title: string;
+  checked: boolean;
+  bbox?: any;
+}
 
 @Component({
   selector: 'app-layer-switchder',
@@ -69,6 +75,8 @@ export class LayerSwitchderComponent {
   selectedProject = '';
   selectedBasemap: string = 'OSM';
   map!: Map;
+  wmsLayerList: WmsLayerItem[] = [];
+  wmsWmsLayers: { [key: string]: TileLayer<TileWMS> } = {};
 
   datastorelist: DataStore[] = [];
   wmsLayers: { [key: string]: TileLayer<TileWMS> } = {};
@@ -93,6 +101,11 @@ export class LayerSwitchderComponent {
       label: 'Temporal',
       value: 2,
       items: []
+    },
+    {
+      label: 'WMS Service',
+      value: 3,
+      items: []
     }
 
   ];
@@ -105,6 +118,13 @@ export class LayerSwitchderComponent {
     private mapService: MapService
   ) {
     this.selectedProject = localStorage.getItem('selectedProject') || '';
+  }
+  toggleWmsLayer(layer: WmsLayerItem, event: any): void {
+    const key = `wms.${layer.name}`;
+    if (this.wmsWmsLayers[key]) {
+      this.wmsWmsLayers[key].setVisible(event.checked);
+    }
+    layer.checked = event.checked;
   }
 
   ngOnInit(): void {
@@ -123,7 +143,64 @@ export class LayerSwitchderComponent {
       this.checkedTables = JSON.parse(storedTables);
     }
   }
+  newGeoserverUrl: string = '';
+  newWorkspace: string = '';
+  newDatastore: string = '';
+  newLayerName: string = '';
+  newStyle: string = '';
 
+  addWmsLayer(): void {
+    if (!this.newGeoserverUrl || !this.newWorkspace || !this.newLayerName) {
+      this.toastService.showInfo('Please provide GeoServer URL, Workspace, and Layer Name');
+      return;
+    }
+
+    const fullLayerName = `${this.newWorkspace}:${this.newLayerName}`;
+    const key = `wms.${fullLayerName}`;
+
+    if (this.wmsWmsLayers[key]) {
+      this.toastService.showInfo('This layer is already added');
+      return;
+    }
+
+    // Construct WMS URL dynamically, no trailing slash needed on base url
+    const wmsUrl = `${this.newGeoserverUrl}/${this.newWorkspace}/wms`;
+
+    const params: any = {
+      'LAYERS': fullLayerName,
+      'TILED': true,
+      'FORMAT': 'image/png',
+      'TRANSPARENT': true,
+      'srs': 'EPSG:4326'
+    };
+
+    if (this.newStyle && this.newStyle.trim().length > 0) {
+      params['STYLES'] = this.newStyle.trim();
+    }
+
+    const wmsLayer = new TileLayer({
+      className: key,
+      source: new TileWMS({
+        url: wmsUrl,
+        params: params,
+        serverType: 'geoserver',
+        transition: 0
+      }),
+      visible: true,
+      zIndex: 1000
+    });
+
+    this.wmsWmsLayers[key] = wmsLayer;
+    this.map.addLayer(wmsLayer);
+
+    this.wmsLayerList.push({
+      name: fullLayerName,
+      title: fullLayerName,
+      checked: true
+    });
+
+    this.toastService.showSuccess(`Layer "${fullLayerName}" added successfully`);
+  }
   zoomToLayer(layerName: string, groupName: string, event?: MouseEvent): void {
     if (event) {
       event.stopPropagation();
@@ -133,12 +210,12 @@ export class LayerSwitchderComponent {
 
     if (groupName === 'Temporal') {
       // Default extent for temporal layers
-      bbox = { 
-        minx: -180, 
-        miny: -90, 
-        maxx: 180, 
+      bbox = {
+        minx: -180,
+        miny: -90,
+        maxx: 180,
         maxy: 90,
-        crs: 'EPSG:4326' 
+        crs: 'EPSG:4326'
       };
     } else {
       // For operational layers
@@ -153,10 +230,10 @@ export class LayerSwitchderComponent {
       return;
     }
 
-    const sourceCRS = typeof bbox.crs === 'string' 
-      ? bbox.crs 
+    const sourceCRS = typeof bbox.crs === 'string'
+      ? bbox.crs
       : bbox.crs?.$ || 'EPSG:4326';
-    
+
     const extent = [bbox.minx, bbox.miny, bbox.maxx, bbox.maxy];
 
     try {
@@ -228,19 +305,19 @@ export class LayerSwitchderComponent {
     const tableInfo = this.checkedTables[key];
     const itemChecked = event.checked;
     let allLayers = this.map.getAllLayers();
-    
+
     for (let dataCount = 0; dataCount < allLayers.length; dataCount++) {
       const element = allLayers[dataCount];
-      if(element.getClassName() === key){
+      if (element.getClassName() === key) {
         element.setVisible(itemChecked)
       }
     }
-    
+
     if (this.checkedTables[key]) {
       this.checkedTables[key].checked = itemChecked;
     }
     localStorage.setItem('checkedTables', JSON.stringify(this.checkedTables));
-    
+
   }
 
   onBasemapChange(selected: string): void {
@@ -308,128 +385,128 @@ export class LayerSwitchderComponent {
   uploadedLayers: UploadedLayer[] = [];
 
   // Update your onFileUpload method
- onFileUpload(event: any): void {
-  const file: File = event.target.files?.[0];
-  if (!file) return;
+  onFileUpload(event: any): void {
+    const file: File = event.target.files?.[0];
+    if (!file) return;
 
-  const reader = new FileReader();
+    const reader = new FileReader();
 
-  reader.onload = () => {
-    const content = reader.result as string;
-    let format;
-    let vectorSource;
-    let dataProjection = 'EPSG:4326'; // Default projection
+    reader.onload = () => {
+      const content = reader.result as string;
+      let format;
+      let vectorSource;
+      let dataProjection = 'EPSG:4326'; // Default projection
 
-    try {
-      const geojson = JSON.parse(content);
-      
-      // Enhanced CRS detection
-      if (geojson.crs) {
-        if (geojson.crs.type === 'name') {
-          const crsCode = geojson.crs.properties.name;
-          
-          // Handle both standard and URN format EPSG codes
-          if (crsCode.startsWith('EPSG:')) {
-            dataProjection = crsCode;
-          } else if (crsCode.startsWith('urn:ogc:def:crs:EPSG::')) {
-            const epsgCode = crsCode.split('::')[1];
-            dataProjection = `EPSG:${epsgCode}`;
+      try {
+        const geojson = JSON.parse(content);
+
+        // Enhanced CRS detection
+        if (geojson.crs) {
+          if (geojson.crs.type === 'name') {
+            const crsCode = geojson.crs.properties.name;
+
+            // Handle both standard and URN format EPSG codes
+            if (crsCode.startsWith('EPSG:')) {
+              dataProjection = crsCode;
+            } else if (crsCode.startsWith('urn:ogc:def:crs:EPSG::')) {
+              const epsgCode = crsCode.split('::')[1];
+              dataProjection = `EPSG:${epsgCode}`;
+            }
+          } else if (geojson.crs.type === 'EPSG') {
+            dataProjection = `EPSG:${geojson.crs.properties.code}`;
           }
-        } else if (geojson.crs.type === 'EPSG') {
-          dataProjection = `EPSG:${geojson.crs.properties.code}`;
         }
-      }
-      // KML is always in EPSG:4326
-      else if (file.name.endsWith('.kml')) {
-        dataProjection = 'EPSG:4326';
-      }
-    } catch (e) {
-      console.log('File is not JSON or no CRS information found');
-    }
-
-    // Rest of your file handling code remains the same...
-    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
-      format = new GeoJSON();
-    } else if (file.name.endsWith('.kml')) {
-      format = new KML();
-    } else if (file.name.endsWith('.gml')) {
-      format = new GML({ featureNS: 'http://www.opengis.net/gml', featureType: 'feature' });
-    } else {
-      this.toastService.showError('Unsupported file type');
-      return;
-    }
-
-    try {
-      // Try with detected projection first
-      let features;
-      try {
-        features = format.readFeatures(content, {
-          dataProjection: dataProjection,
-          featureProjection: 'EPSG:3857'
-        });
+        // KML is always in EPSG:4326
+        else if (file.name.endsWith('.kml')) {
+          dataProjection = 'EPSG:4326';
+        }
       } catch (e) {
-        console.warn(`Failed with ${dataProjection}, trying EPSG:4326`, e);
-        features = format.readFeatures(content, {
-          dataProjection: 'EPSG:4326',
-          featureProjection: 'EPSG:3857'
-        });
-        dataProjection = 'EPSG:4326';
+        console.log('File is not JSON or no CRS information found');
       }
 
-      // Rest of your layer creation code...
-      vectorSource = new VectorSource({ features });
+      // Rest of your file handling code remains the same...
+      if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
+        format = new GeoJSON();
+      } else if (file.name.endsWith('.kml')) {
+        format = new KML();
+      } else if (file.name.endsWith('.gml')) {
+        format = new GML({ featureNS: 'http://www.opengis.net/gml', featureType: 'feature' });
+      } else {
+        this.toastService.showError('Unsupported file type');
+        return;
+      }
 
-      const vectorLayer = new VectorLayer({
-        source: vectorSource,
-        style: new Style({
-          stroke: new Stroke({
-            color: '#007BFF',
-            width: 2
-          }),
-          fill: new Fill({
-            color: 'rgba(0, 123, 255, 0.2)'
-          }),
-          image: new CircleStyle({
-            radius: 5,
-            fill: new Fill({ color: '#007BFF' }),
-            stroke: new Stroke({ color: '#ffffff', width: 1 })
+      try {
+        // Try with detected projection first
+        let features;
+        try {
+          features = format.readFeatures(content, {
+            dataProjection: dataProjection,
+            featureProjection: 'EPSG:3857'
+          });
+        } catch (e) {
+          console.warn(`Failed with ${dataProjection}, trying EPSG:4326`, e);
+          features = format.readFeatures(content, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+          });
+          dataProjection = 'EPSG:4326';
+        }
+
+        // Rest of your layer creation code...
+        vectorSource = new VectorSource({ features });
+
+        const vectorLayer = new VectorLayer({
+          source: vectorSource,
+          style: new Style({
+            stroke: new Stroke({
+              color: '#007BFF',
+              width: 2
+            }),
+            fill: new Fill({
+              color: 'rgba(0, 123, 255, 0.2)'
+            }),
+            image: new CircleStyle({
+              radius: 5,
+              fill: new Fill({ color: '#007BFF' }),
+              stroke: new Stroke({ color: '#ffffff', width: 1 })
+            })
           })
-        })
-      });
-
-      this.uploadedLayers.push({
-        id: `uploaded-${Date.now()}`,
-        name: file.name,
-        visible: true,
-        layer: vectorLayer,
-        projection: dataProjection
-      });
-
-      this.map.addLayer(vectorLayer);
-      
-      try {
-        this.map.getView().fit(vectorSource.getExtent(), {
-          duration: 1000,
-          padding: [50, 50, 50, 50]
         });
-      } catch (e) {
-        console.warn('Could not fit view to layer extent', e);
+
+        this.uploadedLayers.push({
+          id: `uploaded-${Date.now()}`,
+          name: file.name,
+          visible: true,
+          layer: vectorLayer,
+          projection: dataProjection
+        });
+
+        this.map.addLayer(vectorLayer);
+
+        try {
+          this.map.getView().fit(vectorSource.getExtent(), {
+            duration: 1000,
+            padding: [50, 50, 50, 50]
+          });
+        } catch (e) {
+          console.warn('Could not fit view to layer extent', e);
+        }
+
+        this.toastService.showSuccess(`Data loaded (CRS: ${dataProjection})`);
+      } catch (error) {
+        console.error('Error parsing file:', error);
+        this.toastService.showError('Failed to parse file. Check coordinate system.');
       }
+    };
 
-      this.toastService.showSuccess(`Data loaded (CRS: ${dataProjection})`);
-    } catch (error) {
-      console.error('Error parsing file:', error);
-      this.toastService.showError('Failed to parse file. Check coordinate system.');
-    }
-  };
+    reader.onerror = (error) => {
+      console.error('File reading error:', error);
+      this.toastService.showError('Error reading file');
+    };
 
-  reader.onerror = (error) => {
-    console.error('File reading error:', error);
-    this.toastService.showError('Error reading file');
-  };
-
-  reader.readAsText(file);
-}
+    reader.readAsText(file);
+  }
 
   // Add these new methods
   toggleUploadedLayer(layer: UploadedLayer): void {

@@ -1,7 +1,7 @@
 <header class="header flex align-items-center justify-content-between px-4 py-2 bg-primary text-white">
   <!-- Logo Section -->
   <div class="logo flex-none md:w-12rem">
-    <div class="text-xl font-bold">My WebGIS</div>
+    <div class="text-xl font-bold">WebGIS</div>
   </div>
 
   <!-- Center Menu Buttons -->
@@ -12,28 +12,42 @@
   </div>
 
   <!-- Right Side Search and Profile -->
-  <!-- Right Side Search and Profile -->
   <div class="search-profile flex-none md:w-12rem flex flex-col justify-end items-end gap-1">
     <div class="flex justify-end items-center gap-2">
-      <input pInputText type="text" placeholder="Search..." class="p-inputtext-sm w-10rem hidden md:inline-flex" />
 
-      <!-- Reset App Button -->
-      <button pButton icon="pi pi-refresh" style="color: white;" class="p-button-sm" (click)="resetApp()">
+      <!-- 🔍 Search Button (Visible on Mobile/Tablet Only) -->
+      <button pButton icon="pi pi-search" class="p-button-sm md:hidden" (click)="openSearchDrawer()">
       </button>
 
-      <!-- User Icon Button -->
+      <!-- 🔎 Search Input (Visible on Desktop Only) -->
+      <input pInputText type="text" placeholder="Search..." class="p-inputtext-sm w-10rem hidden md:inline-flex" />
+
+      <!-- 🔄 Reset App Button -->
+      <button pButton icon="pi pi-refresh" style="color: white;" class="p-button-sm" (click)="resetApp()">
+      </button>
+      <!-- 🖥 2D/3D Toggle Button -->
+      <button pButton [label]="is3DView ? '2D' : '3D'" icon="pi pi-globe" class="p-button-sm p-button-rounded"
+        (click)="toggle2D3D()">
+      </button>
+
+      <!-- 👤 User Icon Button -->
       <button pButton icon="pi pi-user" style="color: white;" (click)="openUserPanel()">
       </button>
     </div>
 
+    <!-- 🔤 Project Name -->
     <p class="text-xs text-white truncate text-right w-full">
       {{ applicationSettingService.projectName }}
     </p>
   </div>
 
-
-
+  <!-- 👤 User Panel Drawer -->
   <p-drawer header="Profile" [(visible)]="isUserPanelVisible" position="right" [modal]="true">
     <app-profile></app-profile>
+  </p-drawer>
+
+  <!-- 🔍 Search Drawer (Placed Outside the Flex Box for Better Layout Control) -->
+  <p-drawer header="Search" [(visible)]="isSearchDrawerVisible" position="top" [modal]="true">
+    <input pInputText type="text" placeholder="Search..." class="p-inputtext w-full" />
   </p-drawer>
 </header>

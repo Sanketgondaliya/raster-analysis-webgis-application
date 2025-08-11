@@ -4,7 +4,6 @@
       {{ tab.label }}
     </p-tab>
   </p-tablist>
-
   <p-tabpanels>
     <ng-container *ngFor="let tab of tabs">
       <p-tabpanel *ngIf="tab.label !== 'Operational'" [value]="tab.value">
@@ -15,16 +14,10 @@
                 [(ngModel)]="selectedBasemap" (ngModelChange)="onBasemapChange($event)"
                 (click)="$event.stopPropagation()" [inputId]="item.id">
               </p-radioButton>
-
-
-
               <label [for]="item.id" class="ml-2">{{ item.name }}</label>
-              <button *ngIf="tab.label === 'Temporal'" 
-                pButton pRipple 
-                icon="pi pi-search" 
+              <button *ngIf="tab.label === 'Temporal'" pButton pRipple icon="pi pi-search"
                 class="p-button-rounded p-button-text p-button-sm ml-2"
-                (click)="zoomToLayer(item.name, tab.label, $event)"
-                pTooltip="Zoom to layer" tooltipPosition="top">
+                (click)="zoomToLayer(item.name, tab.label, $event)" pTooltip="Zoom to layer" tooltipPosition="top">
               </button>
             </p-accordion-header>
             <p-accordion-content>
@@ -34,7 +27,6 @@
         </p-accordion>
       </p-tabpanel>
     </ng-container>
-
     <p-tabpanel *ngIf="value === 1" [value]="1">
       <p-accordion [multiple]="true">
         <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
@@ -45,11 +37,8 @@
                 (onChange)="onItemClick($event,table.name, ds.name)" [inputId]="ds.name + '_' + table.name">
               </p-checkbox>
               <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>
-              <button pButton pRipple 
-                icon="pi pi-search" 
-                class="p-button-rounded p-button-text p-button-sm ml-2"
-                (click)="zoomToLayer(table.name, ds.name, $event)"
-                pTooltip="Zoom to layer" tooltipPosition="top">
+              <button pButton pRipple icon="pi pi-search" class="p-button-rounded p-button-text p-button-sm ml-2"
+                (click)="zoomToLayer(table.name, ds.name, $event)" pTooltip="Zoom to layer" tooltipPosition="top">
               </button>
             </div>
           </p-accordion-content>
@@ -73,6 +62,44 @@
         </p-accordion-panel>
       </p-accordion>
     </p-tabpanel>
-
+    <p-tabpanel *ngIf="value === 3" [value]="3">
+      <div class="grid">
+        <div class="col-12">
+          <div class="field">
+            <label for="geoserverurl">Geoserver URL</label>
+            <input type="text" [(ngModel)]="newGeoserverUrl" placeholder="e.g. https://vedas.sac.gov.in/geoserver"
+              class="p-inputtext p-component p-mr-2 w-full" />
+          </div>
+          <div class="field">
+            <label for="geoserverurl">Geoserver Workspace</label>
+            <input type="text" [(ngModel)]="newWorkspace" placeholder="Workspace (e.g. vedas, vedas_gis)"
+              class="p-inputtext p-component p-mr-2 w-full" />
+          </div>
+          <div class="field">
+            <label for="geoserverurl">Geoserver LayerName</label>
+            <input type="text" [(ngModel)]="newLayerName" placeholder="Layer Name (e.g. india_state_boundary_07032025)"
+              class="p-inputtext p-component p-mr-2 w-full" />
+          </div>
+          <div class="field">
+            <label for="geoserverurl">Layer Style</label>
+            <input type="text" [(ngModel)]="newStyle"
+              placeholder="Style (optional, e.g. india_state_boundary_07032025_grey)"
+              class="p-inputtext p-component p-mr-2 w-full" />
+          </div>
+        </div>
+      </div>
+      <div class="add-wms-layer-form p-mb-3">
+        <button pButton type="button" label="Add WMS Layer" (click)="addWmsLayer()" class="p-button-success"></button>
+      </div>
+      <p-accordion [multiple]="true">
+        <p-accordion-panel *ngFor="let layer of wmsLayerList" [value]="layer.name">
+          <p-accordion-header>
+            <p-checkbox [binary]="true" [(ngModel)]="layer.checked" (onChange)="toggleWmsLayer(layer, $event)"
+              [inputId]="layer.name"></p-checkbox>
+            <label [for]="layer.name" class="ml-2">{{ layer.title || layer.name }}</label>
+          </p-accordion-header>
+        </p-accordion-panel>
+      </p-accordion>
+    </p-tabpanel>
   </p-tabpanels>
 </p-tabs>

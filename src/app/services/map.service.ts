@@ -6,6 +6,8 @@ import XYZ from 'ol/source/XYZ';
 import TileWMS from 'ol/source/TileWMS';
 import View from 'ol/View';
 import { fromLonLat } from 'ol/proj';
+import { BehaviorSubject } from 'rxjs';
+
 declare global {
   interface Window {
     map: Map;
@@ -19,21 +21,24 @@ export class MapService {
   private _map!: Map;
   private currentBaseLayer: TileLayer | null = null;
   private wmsLayers: { [key: string]: TileLayer<TileWMS> } = {};
-
-
-
-  // India's approximate bounding coordinates
-  private readonly INDIA_CENTER = [80.9629, 20.5937]; // Approximate center of India
+  mode$ = new BehaviorSubject<'2D' | '3D'>('2D');
+  private readonly INDIA_CENTER = [80.9629, 20.5937];
   private readonly INDIA_ZOOM = 4.7;
 
   setMap(map: Map): void {
     this._map = map;
     window.map = this._map;
-
-    // Set default basemap and view for India
     this.setDefaultIndiaView();
-    this.addBasemap('osm'); // Default to OSM basemap
+    this.addBasemap('osm');
   }
+
+  getMap(): Map {
+    return this._map;
+  }
+  setMode(mode: '2D' | '3D'): void {
+    this.mode$.next(mode);
+  }
+
 
   private setDefaultIndiaView(): void {
     if (!this._map) return;
@@ -50,10 +55,7 @@ export class MapService {
     }
   }
 
-  getMap(): Map {
-    return this._map;
-  }
-
+  /** Add a basemap layer */
   addBasemap(type: string): void {
     if (!this._map) return;
 
@@ -97,6 +99,7 @@ export class MapService {
     }
   }
 
+  /** Remove the current basemap */
   removeCurrentBasemap(): void {
     if (this._map && this.currentBaseLayer) {
       this._map.removeLayer(this.currentBaseLayer);
@@ -104,6 +107,7 @@ export class MapService {
     }
   }
 
+  /** Update CQL filter for a WMS layer */
   updateLayerFilter(layerName: string, cqlFilter: string | null): void {
     const layers = this._map.getLayers();
     layers.forEach(layer => {
@@ -117,6 +121,7 @@ export class MapService {
     });
   }
 
+  /** Reset all WMS layer filters */
   resetAllLayerFilters(): void {
     const layers = this._map.getLayers();
     layers.forEach(layer => {
@@ -134,7 +139,7 @@ export class MapService {
     return this.wmsLayers[layerName];
   }
 
-  // Method to zoom to layer extent
+  /** Zoom to WMS layer extent */
   zoomToLayerExtent(layerName: string, extent: number[]): void {
     const layer = this.wmsLayers[layerName];
     if (layer && this._map && extent) {

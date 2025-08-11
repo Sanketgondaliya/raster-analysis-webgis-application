@@ -8,6 +8,7 @@ import { ProfileComponent } from '../../components/profile/profile.component';
 import { filter } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ApplicationSettingService } from '../../services/application-setting.service';
+import { MapService } from '../../services/map.service';
 @Component({
   selector: 'app-header',
   standalone: true,
@@ -21,7 +22,10 @@ export class HeaderComponent {
   isUserPanelVisible: boolean = false;
   currentRoute: string = '';
   selectedProject: string = '';
-  constructor(private router: Router, public applicationSettingService: ApplicationSettingService) {
+  constructor(private router: Router,
+    public applicationSettingService: ApplicationSettingService,
+    private mapService: MapService // hypothetical
+  ) {
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(() => {
@@ -30,6 +34,20 @@ export class HeaderComponent {
     this.selectedProject = this.applicationSettingService.projectName
 
   }
+
+  isSearchDrawerVisible = false;
+
+  openSearchDrawer() {
+    this.isSearchDrawerVisible = true;
+  }
+  is3DView = false; // default 2D
+
+  toggle2D3D() {
+    this.is3DView = !this.is3DView;
+    this.mapService.setMode(this.is3DView ? '3D' : '2D');
+  }
+
+
 
   openPanel(panel: string) {
     this.panelSelect.emit(panel);
@@ -66,7 +84,9 @@ export class HeaderComponent {
     { label: 'Dashboard', path: 'dashboard' },
     { label: 'Attribute Table', path: 'attribute-table' },
     { label: 'Query Module', path: 'query-module' },
-    { label: 'App-Configuration', path: 'appconfig' }
+    { label: 'App-Configuration', path: 'appconfig' },
+    { label: 'raster-analysis', path: 'raster-analysis' }
+
 
   ];
 

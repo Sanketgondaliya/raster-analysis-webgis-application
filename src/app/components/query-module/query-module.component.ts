@@ -340,7 +340,6 @@ export class QueryModuleComponent implements OnInit, AfterViewInit, AfterViewChe
 
   applyCqlFilterToLayer(): void {
     var me = this;
-    debugger
     if (!this.selectedTable || !this.selectedTab || !this.selectedAttribute || !this.selectedCondition) return;
 
     const layerName = `${this.selectedTab}.${this.selectedTable.tableName}`;

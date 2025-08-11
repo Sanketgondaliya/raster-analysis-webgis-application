@@ -1,0 +1,70 @@
+<div class="card">
+  <p-tabs value="0">
+    <p-tablist>
+      <p-tab value="0">DEM</p-tab>
+      <p-tab value="1">Satellite</p-tab>
+    </p-tablist>
+    <p-tabpanels>
+      <!-- DEM TAB -->
+      <p-tabpanel value="0">
+        <div class="p-fluid">
+          <!-- File Upload -->
+          <div class="field">
+            <label for="demUpload">Upload DEM File (GeoTIFF)</label>
+            <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+              (onSelect)="onDemFileUpload($event)" chooseLabel="Choose DEM"></p-fileUpload>
+
+          </div>
+
+
+          <!-- Analysis Type Dropdown -->
+          <div class="field mt-3">
+            <label for="analysisType">Select Analysis Type</label>
+            <p-select [options]="demAnalysisTypes" [(ngModel)]="selectedDemAnalysis" placeholder="Select Analysis Type"
+              optionLabel="label" class="w-full"></p-select>
+          </div>
+
+          <!-- Trigger Button -->
+          <div class="field mt-3">
+            <button pButton label="Run Analysis" class="p-button-success" (click)="runDemAnalysis()"
+              [disabled]="!selectedDemAnalysis || !demFile"></button>
+          </div>
+        </div>
+
+        <div class="field mt-3">
+          <label for="analysisType">Select Analysis Type</label>
+          <p-select [options]="demTypes" [(ngModel)]="selectedDemType" optionLabel="label" optionValue="value"
+            class="w-full">
+          </p-select>
+
+        </div>
+        <div class="field mt-3">
+          <label for="colorRamp">Select Color Ramp</label>
+          <p-select [options]="colorRamps" [(ngModel)]="selectedColorRamp" placeholder="Select Color Ramp"
+            class="w-full">
+          </p-select>
+        </div>
+
+        <!-- DEM Download Section -->
+        <hr class="my-4" />
+        <div class="p-fluid">
+          <h5>Download OpenTopography DEM Tile</h5>
+          <div class="field mt-2">
+            <button pButton label="Download DEM Tile" class="p-button-info"
+              (click)="downloadOpenTopographyDem()"></button>
+          </div>
+        </div>
+        <div class="field mt-2">
+          <button pButton label="Apply Color Ramp" class="p-button-secondary" (click)="reRenderDEM()"
+            [disabled]="!demFile"></button>
+        </div>
+
+      </p-tabpanel>
+
+      <!-- SATELLITE TAB -->
+      <p-tabpanel value="1">
+        <p class="m-0">Satellite</p>
+      </p-tabpanel>
+    </p-tabpanels>
+  </p-tabs>
+</div>

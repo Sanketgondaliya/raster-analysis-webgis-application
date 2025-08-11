@@ -29,12 +29,18 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/cesium/Build/Cesium",
+                "output": "assets/cesium"
               }
             ],
             "styles": [
               "src/styles.scss",
               "node_modules/primeflex/primeflex.css",
-              "src/ol.scss"
+              "src/ol.scss",
+              "node_modules/cesium/Build/Cesium/Widgets/widgets.css"
             ],
             "scripts": []
           },

@@ -56,12 +56,27 @@ export class ProfileComponent implements OnInit {
 
         this.cdr.detectChanges();
       },
-      error: (error) => {
-        console.error("Error fetching data:", error);
-        this.toastService.showError(error || 'Error fetching data');
-      },
+     error: (error) => {
+  console.error("Error fetching data:", error);
+
+  const errorMsg = error?.error;
+
+  // Handle object-based error message
+  if (typeof errorMsg === 'object' && errorMsg?.error?.includes('Missing GeoServer configuration')) {
+    this.toastService.showInfo('GeoServer is not configured. Please set it up in the application settings.');
+  }
+  // Optional: if errorMsg is directly a string
+  else if (typeof errorMsg === 'string' && errorMsg.includes('Missing GeoServer configuration')) {
+    this.toastService.showInfo('GeoServer is not configured. Please set it up in the application settings.');
+  }
+  else {
+    this.toastService.showInfo('Error fetching project list. Please try again later.');
+  }
+}
+
     });
   }
+
 
 
   onProjectSelectChange(): void {

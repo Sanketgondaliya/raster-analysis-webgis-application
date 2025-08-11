@@ -10,6 +10,7 @@ import Overlay from 'ol/Overlay';
 import { CommonModule } from '@angular/common';
 import { NgFor, KeyValuePipe } from '@angular/common';
 import { TabsModule } from 'primeng/tabs';
+import { CesiumService } from '../../services/cesium.service';
 
 interface PopupTab {
   title: string;
@@ -23,25 +24,44 @@ interface PopupTab {
   templateUrl: './map.component.html',
   styleUrls: ['./map.component.scss']
 })
-export class MapComponent implements AfterViewInit, OnDestroy {
+export class MapComponent implements AfterViewInit {
   map!: Map;
   popupOverlay!: Overlay;
   popupContentEl!: HTMLElement;
   popupCloserEl!: HTMLElement;
+  mapMode: 'ol' | 'cesium' = 'ol';
 
   popupTabs: PopupTab[] = [];
-  selectedTab: string | number = '';  // Allow both types
-  constructor(private mapService: MapService) { }
+  selectedTab: string | number = '';
+  modeSub: any;
+  constructor(
+    private mapService: MapService,
+    private cesiumService: CesiumService
+  ) { }
 
   ngAfterViewInit(): void {
-    this.initializeMap();
+    this.mapService.mode$.subscribe(mode => {
+      this.mapMode = mode === '2D' ? 'ol' : 'cesium';
+      this.switchModeInternal();
+    });
   }
 
-  ngOnDestroy(): void {
-    if (this.map) {
-      this.saveViewToLocalStorage();
+  private switchModeInternal(): void {
+    if (this.mapMode === 'ol') {
+      this.initializeMap();
+    } else {
+     /// this.destroyOlMap();
+      this.cesiumService.initCesium();
     }
   }
+
+  private destroyOlMap() {
+    if (this.map) {
+      this.map.setTarget('');
+      this.map = null as any;
+    }
+  }
+
 
   onTabChange(value: string | number) {
     this.selectedTab = String(value); // Convert to string if needed
@@ -51,12 +71,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.popupContentEl = document.getElementById('popup-content') as HTMLElement;
     this.popupCloserEl = document.getElementById('popup-closer') as HTMLElement;
 
+    if (!this.popupContentEl || !this.popupCloserEl) {
+      console.warn('Popup elements not found in DOM.');
+      return;
+    }
+
     this.popupOverlay = new Overlay({
       element: document.getElementById('popup') as HTMLElement,
       autoPan: {
-        animation: {
-          duration: 250
-        }
+        animation: { duration: 250 }
       }
     });
 
@@ -69,9 +92,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     };
   }
 
+
   private initializeMap(): void {
     const savedView = localStorage.getItem('mapView');
-    let center = fromLonLat([78.9629, 20.5937]); // Default: India
+    let center = fromLonLat([78.9629, 20.5937]);
     let zoom = 5;
 
     if (savedView) {
@@ -133,7 +157,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
           if (json.features && json.features.length > 0) {
             return {
-              title: layerName.toString(), // 🔧 Ensure string
+              title: layerName.toString(),
               data: json.features[0].properties
             };
           }
@@ -145,8 +169,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       });
 
       const results = (await Promise.all(requests)).filter(r => r !== null) as PopupTab[];
-
-      // In the setupWmsFeatureInfo method:
       this.popupTabs = results.length > 0
         ? results.map(r => ({
           title: String(r.title), // Ensure title is always a string
@@ -172,5 +194,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     };
 
     localStorage.setItem('mapView', JSON.stringify(viewData));
+  }
+   private destroyMap(): void {
+    if (this.map) {
+      this.map.setTarget(undefined);
+    }
+  }
+  ngOnDestroy(): void {
+    this.modeSub?.unsubscribe();
+    this.destroyMap();
   }
 }

@@ -60,3 +60,9 @@
   color: green !important;
   font-weight: bold;
 }
+/* Hide the search input on tablet and mobile */
+@media (max-width: 768px) {
+  .search-input {
+    display: none !important;
+  }
+}

@@ -4,6 +4,7 @@ import { AttributeTableComponent } from './components/attribute-table/attribute-
 import { QueryModuleComponent } from './components/query-module/query-module.component';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { GeoserverComponent } from './components/geoserver/geoserver.component';
+import { RasterAnalysisComponent } from './components/raster-analysis/raster-analysis.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -12,5 +13,7 @@ export const routes: Routes = [
   { path: 'query-module', component: QueryModuleComponent },
   { path: 'dashboard', component: DashboardComponent },
   { path: 'appconfig', component: GeoserverComponent },
+  { path: 'raster-analysis', component: RasterAnalysisComponent },
+
   { path: '**', redirectTo: 'layer-switcher' }
 ];
