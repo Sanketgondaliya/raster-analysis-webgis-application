@@ -25,6 +25,7 @@ import { saveAs } from 'file-saver';
 import { RasterAnalysisService } from '../../services/rasteranalysis.service';
 import ImageLayer from 'ol/layer/Image';
 import Static from 'ol/source/ImageStatic';
+import { CesiumService } from '../../services/cesium.service';
 @Component({
   selector: 'app-raster-analysis',
   standalone: true,
@@ -34,30 +35,81 @@ import Static from 'ol/source/ImageStatic';
 })
 export class RasterAnalysisComponent implements OnInit, AfterViewInit, OnDestroy {
   demFile: File | null = null;
-  demAnalysisTypes = [
+ demAnalysisTypes = [
+    // Basic analysis
     { label: 'Elevation at Point', value: 'point' },
     { label: 'Elevation Profile', value: 'profile' },
-    { label: 'Slope Map', value: 'slope' },
-    { label: 'Aspect Map', value: 'aspect' },
-    { label: 'Hillshade', value: 'hillshade' },
-    { label: 'Watershed', value: 'watershed' },
-  ];
+    
+    // Terrain derivatives
+    { label: 'Slope Map', value: 'slope', 
+      description: 'Calculates slope steepness in degrees or percent' },
+    { label: 'Aspect Map', value: 'aspect', 
+      description: 'Calculates slope orientation (0-360 degrees)' },
+    { label: 'Hillshade', value: 'hillshade', 
+      description: 'Creates shaded relief from elevation data' },
+    { label: 'Curvature', value: 'curvature', 
+      description: 'Calculates profile and planimetric curvature' },
+    { label: 'Roughness', value: 'roughness', 
+      description: 'Measures surface texture variability' },
+    { label: 'TPI (Topographic Position Index)', value: 'tpi', 
+      description: 'Compares elevation to local mean' },
+    
+    // Hydrological analysis
+    { label: 'Watershed Delineation', value: 'watershed', 
+      description: 'Delineates drainage basins' },
+    { label: 'Flow Accumulation', value: 'flow_accumulation', 
+      description: 'Calculates upstream contributing area' },
+    { label: 'Flow Direction', value: 'flow_direction', 
+      description: 'Determines drainage direction (D8 algorithm)' },
+    { label: 'Wetness Index', value: 'wetness', 
+      description: 'Topographic wetness index (ln(a/tanβ))' },
+    { label: 'Stream Network', value: 'stream_network', 
+      description: 'Extracts channel network from flow accumulation' },
+    
+    // Advanced terrain analysis
+    { label: 'Viewshed Analysis', value: 'viewshed', 
+      description: 'Calculates visible areas from observer points' },
+    { label: 'Solar Radiation', value: 'solar', 
+      description: 'Models incoming solar radiation' },
+    { label: 'Terrain Ruggedness', value: 'tri', 
+      description: 'Terrain Ruggedness Index' },
+    { label: 'Morphometric Features', value: 'morphometry', 
+      description: 'Identifies peaks, pits, ridges, etc.' },
+    
+    // Specialized analyses
+    { label: 'Volume Calculation', value: 'volume', 
+      description: 'Calculates cut/fill volumes between surfaces' },
+    { label: 'Hydrologic Corrected DEM', value: 'hydro_corrected', 
+      description: 'Enforces hydrologic consistency' },
+    { label: 'Channel Network Distance', value: 'channel_distance', 
+      description: 'Distance to nearest stream channel' },
+    { label: 'Topographic Wetness', value: 'topo_wetness', 
+      description: 'Combines slope and upslope area' },
+    
+    // Visualization
+    { label: '3D Surface Model', value: '3d_surface', 
+      description: 'Generates 3D visualization of terrain' },
+    { label: 'Contour Lines', value: 'contours', 
+      description: 'Generates elevation contour lines' },
+    { label: 'Color Relief', value: 'color_relief', 
+      description: 'Applies color ramp to elevation values' }
+];
   demTypes = [
     { label: 'SRTMGL1 (30m)', value: 'SRTMGL1' },
     { label: 'SRTMGL3 (90m)', value: 'SRTMGL3' },
     { label: 'AW3D30 (30m)', value: 'AW3D30' },
     { label: 'COP30 (30m)', value: 'COP30' },
   ];
-colorRamps = [
-  { label: 'Grayscale', value: 'grayscale' },
-  { label: 'Terrain (ArcGIS)', value: 'terrain' },
-  { label: 'Elevation (Topographic)', value: 'elevation' },
-  { label: 'NDVI (Vegetation)', value: 'ndvi' },
-  { label: 'Viridis', value: 'viridis' },
-  { label: 'Plasma', value: 'plasma' },
-  { label: 'DEM Standard', value: 'dem' },
-  { label: 'Thermal', value: 'thermal' }
-];
+  colorRamps = [
+    { label: 'Grayscale', value: 'grayscale' },
+    { label: 'Terrain (ArcGIS)', value: 'terrain' },
+    { label: 'Elevation (Topographic)', value: 'elevation' },
+    { label: 'NDVI (Vegetation)', value: 'ndvi' },
+    { label: 'Viridis', value: 'viridis' },
+    { label: 'Plasma', value: 'plasma' },
+    { label: 'DEM Standard', value: 'dem' },
+    { label: 'Thermal', value: 'thermal' }
+  ];
   selectedDemType: string = 'SRTMGL1';
   selectedColorRamp: string = 'grayscale';
 
@@ -73,113 +125,153 @@ colorRamps = [
 
   constructor(
     private mapService: MapService,
-    private geoserverService: GeoserverService,
     private toastService: ToastService,
-    private router: Router,
-    private http: HttpClient,
-    private rasterService: RasterAnalysisService
+    private rasterService: RasterAnalysisService,
+        private cesiumService:CesiumService
+
   ) { }
   reRenderDEM() {
+    debugger
     if (this.demFile) {
+      //this.visualizeDemIn3d()
       this.visualizeTiff(this.demFile);
+
     }
   }
 
   ngOnInit(): void { }
+// Add to RasterAnalysisComponent
 
 
-applyColorRamp(value: number, ramp: string): [number, number, number] {
-  // Normalize value between 0 and 1
-  const normValue = Math.max(0, Math.min(1, value));
-  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+async visualizeDemIn3d() {
+  if (!this.demFile) {
+    this.toastService.showError('No DEM file uploaded');
+    return;
+  }
 
-  // Declare gray variable once at the start
-  let gray: number;
-
-  switch (ramp) {
-    // Elevation/Topographic
-    case 'elevation':
-      if (normValue < 0.1) return [0, 77, 168];       // Deep water
-      if (normValue < 0.2) return [0, 112, 255];      // Shallow water
-      if (normValue < 0.3) return [191, 242, 255];    // Shoreline
-      if (normValue < 0.4) return [85, 170, 0];       // Lowlands (green)
-      if (normValue < 0.5) return [139, 139, 0];      // Plains (yellow-green)
-      if (normValue < 0.6) return [180, 140, 50];     // Hills (brown)
-      if (normValue < 0.7) return [150, 100, 50];     // Mountains (dark brown)
-      if (normValue < 0.8) return [130, 80, 40];      // High mountains
-      if (normValue < 0.9) return [100, 60, 30];      // Higher mountains
-      return [255, 255, 255];                         // Snow caps
-
-    // Terrain (similar to ArcGIS Terrain)
-    case 'terrain':
-      if (normValue < 0.2) return [51, 102, 153];     // Deep water
-      if (normValue < 0.3) return [86, 153, 204];     // Shallow water
-      if (normValue < 0.4) return [171, 205, 227];    // Wetlands
-      if (normValue < 0.5) return [191, 191, 127];    // Lowlands
-      if (normValue < 0.6) return [166, 166, 97];     // Plains
-      if (normValue < 0.7) return [153, 140, 66];     // Hills
-      if (normValue < 0.8) return [140, 115, 51];     // Mountains
-      if (normValue < 0.9) return [115, 89, 38];      // High mountains
-      return [179, 179, 179];                         // Snow
-
-    // NDVI (Vegetation index)
-    case 'ndvi':
-      if (normValue < 0.2) return [165, 0, 38];       // Red - No vegetation
-      if (normValue < 0.4) return [215, 48, 39];      // Light red
-      if (normValue < 0.5) return [244, 109, 67];     // Orange
-      if (normValue < 0.6) return [253, 174, 97];     // Light orange
-      if (normValue < 0.7) return [254, 224, 139];    // Yellow
-      if (normValue < 0.8) return [217, 239, 139];    // Light green
-      if (normValue < 0.9) return [166, 217, 106];    // Medium green
-      return [102, 189, 99];                          // Dark green - Dense vegetation
-
-    // Viridis (perceptually uniform)
-    case 'viridis':
-      return [
-        clamp(68 + normValue * 187),
-        clamp(1 + normValue * 254),
-        clamp(84 + (1 - normValue) * 171)
-      ];
-
-    // Plasma (another perceptually uniform)
-    case 'plasma':
-      return [
-        clamp(13 + normValue * 242),
-        clamp(8 + (1 - Math.pow(normValue - 0.5, 2)) * 247),
-        clamp(135 + (1 - normValue) * 120)
-      ];
-
-    // Grayscale
-    case 'grayscale':
-      gray = clamp(normValue * 255);
-      return [gray, gray, gray];
-
-    // DEM (standard elevation)
-    case 'dem':
-      if (normValue < 0.25) return [0, 0, 255];       // Blue - water
-      if (normValue < 0.5) return [0, 255, 0];        // Green - lowlands
-      if (normValue < 0.75) return [165, 42, 42];     // Brown - mountains
-      return [255, 255, 255];                         // White - snow
-
-    // Thermal (heat map)
-    case 'thermal':
-      if (normValue < 0.2) return [0, 0, 0];          // Black
-      if (normValue < 0.4) return [128, 0, 128];      // Purple
-      if (normValue < 0.6) return [255, 0, 0];        // Red
-      if (normValue < 0.8) return [255, 255, 0];      // Yellow
-      return [255, 255, 255];                         // White
-
-    default:
-      gray = clamp(normValue * 255);
-      return [gray, gray, gray];
+  try {
+    const arrayBuffer = await this.demFile.arrayBuffer();
+    const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
+    const image = await tiff.getImage();
+    
+    // Get DEM bounds
+    const bbox = image.getBoundingBox();
+    
+    // Read raster data
+    const rasterData = await image.readRasters();
+    const values = rasterData[0];
+    
+    // Prepare DEM data for Cesium
+    const demData = {
+      values,
+      width: image.getWidth(),
+      height: image.getHeight()
+    };
+    
+    // Add to Cesium
+    await this.cesiumService.addDemLayer(demData, {
+      name: 'Uploaded DEM',
+      bounds: {
+        west: bbox[0],
+        south: bbox[1],
+        east: bbox[2],
+        north: bbox[3]
+      }
+    });
+    
+    this.toastService.showSuccess('DEM displayed in 3D view');
+  } catch (error) {
+    console.error('Error displaying DEM in 3D:', error);
+    this.toastService.showError('Failed to display DEM in 3D view');
   }
 }
 
+  applyColorRamp(value: number, ramp: string): [number, number, number] {
+    const normValue = Math.max(0, Math.min(1, value));
+    const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+    let gray: number;
 
+    switch (ramp) {
+      // Elevation/Topographic
+      case 'elevation':
+        if (normValue < 0.1) return [0, 77, 168];       // Deep water
+        if (normValue < 0.2) return [0, 112, 255];      // Shallow water
+        if (normValue < 0.3) return [191, 242, 255];    // Shoreline
+        if (normValue < 0.4) return [85, 170, 0];       // Lowlands (green)
+        if (normValue < 0.5) return [139, 139, 0];      // Plains (yellow-green)
+        if (normValue < 0.6) return [180, 140, 50];     // Hills (brown)
+        if (normValue < 0.7) return [150, 100, 50];     // Mountains (dark brown)
+        if (normValue < 0.8) return [130, 80, 40];      // High mountains
+        if (normValue < 0.9) return [100, 60, 30];      // Higher mountains
+        return [255, 255, 255];                         // Snow caps
 
-  ngAfterViewInit(): void {
-    this.initMap();
+      // Terrain (similar to ArcGIS Terrain)
+      case 'terrain':
+        if (normValue < 0.2) return [51, 102, 153];     // Deep water
+        if (normValue < 0.3) return [86, 153, 204];     // Shallow water
+        if (normValue < 0.4) return [171, 205, 227];    // Wetlands
+        if (normValue < 0.5) return [191, 191, 127];    // Lowlands
+        if (normValue < 0.6) return [166, 166, 97];     // Plains
+        if (normValue < 0.7) return [153, 140, 66];     // Hills
+        if (normValue < 0.8) return [140, 115, 51];     // Mountains
+        if (normValue < 0.9) return [115, 89, 38];      // High mountains
+        return [179, 179, 179];                         // Snow
+
+      // NDVI (Vegetation index)
+      case 'ndvi':
+        if (normValue < 0.2) return [165, 0, 38];       // Red - No vegetation
+        if (normValue < 0.4) return [215, 48, 39];      // Light red
+        if (normValue < 0.5) return [244, 109, 67];     // Orange
+        if (normValue < 0.6) return [253, 174, 97];     // Light orange
+        if (normValue < 0.7) return [254, 224, 139];    // Yellow
+        if (normValue < 0.8) return [217, 239, 139];    // Light green
+        if (normValue < 0.9) return [166, 217, 106];    // Medium green
+        return [102, 189, 99];                          // Dark green - Dense vegetation
+
+      // Viridis (perceptually uniform)
+      case 'viridis':
+        return [
+          clamp(68 + normValue * 187),
+          clamp(1 + normValue * 254),
+          clamp(84 + (1 - normValue) * 171)
+        ];
+
+      // Plasma (another perceptually uniform)
+      case 'plasma':
+        return [
+          clamp(13 + normValue * 242),
+          clamp(8 + (1 - Math.pow(normValue - 0.5, 2)) * 247),
+          clamp(135 + (1 - normValue) * 120)
+        ];
+
+      // Grayscale
+      case 'grayscale':
+        gray = clamp(normValue * 255);
+        return [gray, gray, gray];
+
+      // DEM (standard elevation)
+      case 'dem':
+        if (normValue < 0.25) return [0, 0, 255];       // Blue - water
+        if (normValue < 0.5) return [0, 255, 0];        // Green - lowlands
+        if (normValue < 0.75) return [165, 42, 42];     // Brown - mountains
+        return [255, 255, 255];                         // White - snow
+
+      // Thermal (heat map)
+      case 'thermal':
+        if (normValue < 0.2) return [0, 0, 0];          // Black
+        if (normValue < 0.4) return [128, 0, 128];      // Purple
+        if (normValue < 0.6) return [255, 0, 0];        // Red
+        if (normValue < 0.8) return [255, 255, 0];      // Yellow
+        return [255, 255, 255];                         // White
+
+      default:
+        gray = clamp(normValue * 255);
+        return [gray, gray, gray];
+    }
   }
+
+
+
 
   ngOnDestroy(): void { }
 
@@ -200,47 +292,61 @@ applyColorRamp(value: number, ramp: string): [number, number, number] {
     });
 
     this.map.addLayer(this.vectorLayer);
+  }
+  startDraw() {
+  this.addDrawInteraction();
+}
+
+ngAfterViewInit(): void {
+  setTimeout(() => {
+    this.initMap();
     this.addDrawInteraction();
+    this.map.updateSize();
+  }, 0);
+}
+
+addDrawInteraction() {
+  if (!this.map) {
+    console.error('Map not initialized yet');
+    return;
   }
-  addDrawInteraction() {
-    debugger
-    if (this.draw) {
-      this.map.removeInteraction(this.draw);
-    }
+
+  if (this.draw) {
+    this.map.removeInteraction(this.draw);
+  }
+
+  this.vectorSource.clear();
+
+  this.draw = new Draw({
+    source: this.vectorSource,
+    type: 'Circle',
+    geometryFunction: createBox(),
+    style: new Style({
+      stroke: new Stroke({ color: '#f00', width: 2 }),
+      fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
+    }),
+  });
+
+  this.draw.on('drawstart', () => {
     this.vectorSource.clear();
+  });
 
-    this.draw = new Draw({
-      source: this.vectorSource,
-      type: 'Circle',
-      geometryFunction: createBox(),
-      style: new Style({
-        stroke: new Stroke({ color: '#f00', width: 2 }),
-        fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
-      }),
-    });
+  this.draw.on('drawend', (event) => {
+    const geometry = event.feature.getGeometry();
+    if (geometry instanceof Polygon) {
+      const coordinates = geometry.getCoordinates()[0];
+      const lonLatCoords = coordinates.map(coord => toLonLat(coord));
+      const lons = lonLatCoords.map(c => c[0]);
+      const lats = lonLatCoords.map(c => c[1]);
+      this.bbox = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+      console.log('Selected bounding box:', this.bbox);
+    }
+    this.map.removeInteraction(this.draw);
+  });
 
-    this.draw.on('drawstart', () => {
-      this.vectorSource.clear();
-    });
+  this.map.addInteraction(this.draw);
+}
 
-    this.draw.on('drawend', (event) => {
-      const feature = event.feature;
-      const geometry = feature.getGeometry();
-      if (geometry && geometry instanceof Polygon) {
-        const coordinates = geometry.getCoordinates()[0];
-        const lonLatCoords = coordinates.map((coord) => toLonLat(coord));
-        const lons = lonLatCoords.map((c) => c[0]);
-        const lats = lonLatCoords.map((c) => c[1]);
-        this.bbox = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
-        console.log('Selected bounding box:', this.bbox);
-      }
-
-      this.map.removeInteraction(this.draw);
-      // Optionally restore click listeners here
-    });
-
-    this.map.addInteraction(this.draw);
-  }
   async onDemFileUpload(event: any) {
     const file = event.files[0];
     if (!file) return;
@@ -250,6 +356,7 @@ applyColorRamp(value: number, ramp: string): [number, number, number] {
 
     try {
       await this.visualizeTiff(file);
+      //this.visualizeDemIn3d();
       this.toastService.showSuccess('DEM visualized successfully!');
     } catch (error) {
       console.error('Error visualizing uploaded DEM:', error);

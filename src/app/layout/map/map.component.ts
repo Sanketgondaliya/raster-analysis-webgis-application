@@ -1,7 +1,7 @@
 import { Component, AfterViewInit, OnDestroy } from '@angular/core';
 import Map from 'ol/Map';
 import View from 'ol/View';
-import { fromLonLat, toLonLat } from 'ol/proj';
+import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 import { MapService } from '../../services/map.service';
 import { ObjectEvent } from 'ol/Object';
 import TileLayer from 'ol/layer/Tile';
@@ -44,27 +44,22 @@ export class MapComponent implements AfterViewInit {
       this.mapMode = mode === '2D' ? 'ol' : 'cesium';
       this.switchModeInternal();
     });
-
-    // Initialize with default mode
-    this.switchModeInternal();
   }
 
- private switchModeInternal(): void {
-  if (this.mapMode === 'ol') {
-    this.cesiumService.destroyCesium();
-
-    // Wait for DOM render before initializing OL map
-    setTimeout(() => this.initializeMap(), 0);
-  } else {
-    this.destroyOlMap();
-    setTimeout(() => this.cesiumService.initCesium('cesiumContainer'), 0);
+  private switchModeInternal(): void {
+    if (this.mapMode === 'ol') {
+      this.cesiumService.destroyCesium();
+     this.initializeMap()
+    } else {
+      this.destroyOlMap();
+      setTimeout(() => this.cesiumService.initCesium('cesiumContainer'), 0);
+    }
   }
-}
 
 
   private destroyOlMap(): void {
     if (this.map) {
-      this.map.setTarget(undefined); // ✅ Type-safe
+      this.map.setTarget(undefined); 
       this.map = null as any;
     }
   }
@@ -114,41 +109,68 @@ export class MapComponent implements AfterViewInit {
   }
 
 
-  private initializeMap(): void {
-    const savedView = localStorage.getItem('mapView');
-    let center = fromLonLat([78.9629, 20.5937]);
-    let zoom = 5;
+ private initializeMap(): void {
+  console.log('*');
+  
+  const savedView = localStorage.getItem('mapView');
 
-    if (savedView) {
-      try {
-        const view = JSON.parse(savedView);
+  let center = fromLonLat([78.9629, 20.5937]); // Default India center
+  let zoom = 5;
+  let rotation = 0;
+
+  if (savedView) {
+    try {
+      const view = JSON.parse(savedView);
+      if (view.lon !== undefined && view.lat !== undefined) {
         center = fromLonLat([view.lon, view.lat]);
-        zoom = view.zoom;
-      } catch (e) {
-        console.warn('Failed to parse saved map view.', e);
       }
+      if (view.zoom !== undefined) {
+        zoom = view.zoom;
+      }
+      if (view.rotation !== undefined) {
+        rotation = view.rotation;
+      }
+    } catch (e) {
+      console.warn('Error reading saved map view:', e);
     }
-
-    const view = new View({ center, zoom });
-
-    this.map = new Map({
-      target: 'map',
-      view
-    });
-
-    view.on('change:center', () => this.saveViewToLocalStorage());
-    view.on('change:resolution', () => this.saveViewToLocalStorage());
-
-    this.mapService.setMap(this.map);
-    this.initPopupOverlay();
-    this.setupWmsFeatureInfo();
-
-    this.mapService.addBasemap('osm');
   }
+
+  const olView = new View({ center, zoom, rotation });
+
+  this.map = new Map({
+    target: 'map',
+    view: olView
+  });
+
+  // // Save only if something changed
+  // this.map.on('moveend', () => {
+  //   const view = this.map.getView();
+  //   const currentCenter = toLonLat(view.getCenter()!);
+  //   const currentZoom = view.getZoom();
+
+  //   const stored = savedView ? JSON.parse(savedView) : {};
+  //   if (
+  //     stored.lon !== currentCenter[0] ||
+  //     stored.lat !== currentCenter[1] ||
+  //     stored.zoom !== currentZoom
+  //   ) {
+  //     this.saveViewToLocalStorage();
+  //   }
+  // });
+  this.mapService.setMap(this.map);
+  this.initPopupOverlay();
+  this.setupWmsFeatureInfo();
+  this.mapService.addBasemap('osm');
+}
 
   private setupWmsFeatureInfo(): void {
     this.map.on('singleclick', async (evt) => {
       this.popupTabs = [];
+      console.log("pour point");
+      let a =toLonLat(evt.coordinate)
+      console.log(a);
+      
+      
       this.popupOverlay.setPosition(undefined);
 
       const view = this.map.getView();
@@ -203,19 +225,29 @@ export class MapComponent implements AfterViewInit {
     });
   }
 
-  private saveViewToLocalStorage(): void {
-    const view = this.map.getView();
-    const center = toLonLat(view.getCenter()!);
-    const zoom = view.getZoom();
+private saveViewToLocalStorage(): void {
+  const view = this.map.getView();
+  const center = toLonLat(view.getCenter()!); // already EPSG:4326
+  const zoom = view.getZoom();
+  const rotation = view.getRotation();
 
-    const viewData = {
-      lon: center[0],
-      lat: center[1],
-      zoom: zoom
-    };
+  // Get extent in map projection
+  const extent = view.calculateExtent();
 
-    localStorage.setItem('mapView', JSON.stringify(viewData));
-  }
+  // Convert extent to EPSG:4326
+  const extent4326 = transformExtent(extent, view.getProjection(), 'EPSG:4326');
+
+  const viewData = {
+    lon: center[0],
+    lat: center[1],
+    zoom,
+    rotation,
+    extent: extent4326
+  };
+
+  localStorage.setItem('mapView', JSON.stringify(viewData));
+}
+
 
 
 }

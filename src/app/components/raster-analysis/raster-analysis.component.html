@@ -16,6 +16,9 @@
 
           </div>
 
+          <div class="field mt-3">
+            <button pButton label="Draw Area" class="p-button-warning" (click)="startDraw()"></button>
+          </div>
 
           <!-- Analysis Type Dropdown -->
           <div class="field mt-3">
@@ -56,7 +59,7 @@
         </div>
         <div class="field mt-2">
           <button pButton label="Apply Color Ramp" class="p-button-secondary" (click)="reRenderDEM()"
-            [disabled]="!demFile"></button>
+            ></button>
         </div>
 
       </p-tabpanel>
