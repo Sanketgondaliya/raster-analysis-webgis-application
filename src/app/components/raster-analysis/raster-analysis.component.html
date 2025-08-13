@@ -125,38 +125,147 @@
                 </div>
               </p-tabpanel>
               <p-tabpanel value="2">
-                <div class="grid">
-                  <p>Narendra Solpe</p>
-                </div>
+                <form [formGroup]="slopeForm" (ngSubmit)="onSlopeSubmit()" class="w-full">
+                  <div class="grid w-full">
+                    <div class="col-12">
+                      <div class="field">
+                        <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                          (onSelect)="onFileSelect($event)" chooseLabel="Choose DEM"></p-fileUpload>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="slopeType">Slope Type</label>
+                        <p-select id="slopeType" [options]="slopeOptions" formControlName="slopeType"
+                          placeholder="Select Slope Type" class="w-full">
+                        </p-select>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="zFactor">Z-Factor</label>
+                        <p-select id="zFactor" [options]="zFactorOptions" formControlName="zFactor"
+                          placeholder="Select Z-Factor" class="w-full">
+                        </p-select>
+                      </div>
+                    </div>
+
+                    <div class="col-12">
+                      <p-button label="Submit" type="submit" [disabled]="slopeForm.invalid"></p-button>
+                    </div>
+                  </div>
+                  <div class="slope-legend mt-3 p-2 border-round">
+                    <div class="legend-title">Slope Legend</div>
+                    <div class="legend-items">
+                      <div class="legend-item" *ngFor="let item of slopeLegend">
+                        <div class="legend-color" [style.background]="item.color"></div>
+                        <span class="legend-label">{{ item.label }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </form>
+
               </p-tabpanel>
               <p-tabpanel value="3">
-                <div class="grid">
-                  <p>Narendra Aspect</p>
-                </div>
+                <form [formGroup]="aspectForm" (ngSubmit)="onAspectSubmit()" class="w-full">
+                  <div class="grid w-full">
+                    <div class="col-12">
+                      <div class="field">
+                        <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                          (onSelect)="onFileSelect($event)" chooseLabel="Choose DEM"></p-fileUpload>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="outputformat">Output Format</label>
+                        <p-select id="outputformat" [options]="aspectOptions" formControlName="outputformat"
+                          placeholder="Select Output Format" class="w-full">
+                        </p-select>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="FlatAreasHandling">Flat Areas Handling</label>
+                        <p-select id="FlatAreasHandling" [options]="flatAreaHandlingOptions"
+                          formControlName="FlatAreasHandling" placeholder="Select Flat Areas Handling" class="w-full">
+                        </p-select>
+                      </div>
+                    </div>
+
+                    <div class="col-12">
+                      <p-button label="Submit" type="submit" [disabled]="slopeForm.invalid"></p-button>
+                    </div>
+                  </div>
+                </form>
               </p-tabpanel>
               <p-tabpanel value="4">
-                <div class="grid">
-                  <p>Narendra Hillshade</p>
-                </div>
+                <form [formGroup]="hillshadeForm" (ngSubmit)="onHillshadeSubmit()" class="w-full">
+                  <div class="grid w-full">
+
+                    <!-- DEM File Upload -->
+                    <div class="col-12">
+                      <div class="field">
+                        <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                          (onSelect)="onFileSelect($event)" chooseLabel="Choose DEM">
+                        </p-fileUpload>
+                      </div>
+                    </div>
+
+                    <!-- Z-Factor -->
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="zFactor">Z-Factor (vertical exaggeration)</label>
+                        <input pInputText type="number" id="zFactor" formControlName="z_factor" value="1.0" min="0.1"
+                          step="0.1" required>
+                      </div>
+                    </div>
+
+                    <!-- Azimuth -->
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="azimuth">Azimuth (degrees, 0-360)</label>
+                        <input pInputText type="number" id="azimuth" formControlName="azimuth" value="315.0" min="0"
+                          max="360" required>
+                      </div>
+                    </div>
+
+                    <!-- Altitude -->
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="altitude">Altitude (degrees, 0-90)</label>
+                        <input pInputText type="number" id="altitude" formControlName="altitude" value="45.0" min="0"
+                          max="90" required>
+                      </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="col-12">
+                      <p-button label="Submit" type="submit" [disabled]="hillshadeForm.invalid"></p-button>
+                    </div>
+
+                  </div>
+                </form>
               </p-tabpanel>
+
               <p-tabpanel value="5">
                 <div class="grid">
-                  <p>Narendra Roughness</p>
+                  <p> Roughness</p>
                 </div>
               </p-tabpanel>
               <p-tabpanel value="6">
                 <div class="grid">
-                  <p>Narendra TPI</p>
+                  <p> TPI</p>
                 </div>
               </p-tabpanel>
               <p-tabpanel value="7">
                 <div class="grid">
-                  <p>Narendra Elevation Profile</p>
+                  <p> Elevation Profile</p>
                 </div>
               </p-tabpanel>
               <p-tabpanel value="8">
                 <div class="grid">
-                  <p>Narendra Elevation At Point</p>
+                  <p> Elevation At Point</p>
                 </div>
               </p-tabpanel>
             </p-tabpanels>

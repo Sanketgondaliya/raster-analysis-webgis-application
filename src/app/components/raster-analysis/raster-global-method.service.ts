@@ -1,0 +1,208 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class RasterGlobalMethodService {
+
+  applyColorRamp(value: number, ramp: string): [number, number, number] {
+    const normValue = Math.max(0, Math.min(1, value));
+    const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+    let gray: number;
+
+    switch (ramp) {
+      // Elevation/Topographic
+      case 'elevation':
+        if (normValue < 0.1) return [0, 77, 168];       // Deep water
+        if (normValue < 0.2) return [0, 112, 255];      // Shallow water
+        if (normValue < 0.3) return [191, 242, 255];    // Shoreline
+        if (normValue < 0.4) return [85, 170, 0];       // Lowlands (green)
+        if (normValue < 0.5) return [139, 139, 0];      // Plains (yellow-green)
+        if (normValue < 0.6) return [180, 140, 50];     // Hills (brown)
+        if (normValue < 0.7) return [150, 100, 50];     // Mountains (dark brown)
+        if (normValue < 0.8) return [130, 80, 40];      // High mountains
+        if (normValue < 0.9) return [100, 60, 30];      // Higher mountains
+        return [255, 255, 255];
+
+      // Hillshade: simple dark→bright grayscale
+      case 'hillshade':
+        gray = clamp(normValue * 255);
+        return [gray, gray, gray];
+
+      // Aspect: value expected to be normalized from 0–1 (where 0=0°, 1=360°)
+      // Uses HSV to RGB conversion for smooth circular coloring
+      case 'aspect':
+        const hue = normValue * 360; // degrees
+        const c = 1; // full saturation
+        const x = (1 - Math.abs(((hue / 60) % 2) - 1)) * c;
+        let r = 0, g = 0, b = 0;
+
+        if (hue < 60) { r = c; g = x; b = 0; }
+        else if (hue < 120) { r = x; g = c; b = 0; }
+        else if (hue < 180) { r = 0; g = c; b = x; }
+        else if (hue < 240) { r = 0; g = x; b = c; }
+        else if (hue < 300) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+
+        return [
+          clamp(r * 255),
+          clamp(g * 255),
+          clamp(b * 255)
+        ];// Snow caps
+      case 'slope':
+        // Typical slope color scheme: green (flat) → yellow → orange → red (steep)
+        if (normValue < 0.1) return [0, 104, 55];     // Very gentle
+        if (normValue < 0.2) return [26, 152, 80];    // Gentle
+        if (normValue < 0.4) return [102, 189, 99];   // Moderate
+        if (normValue < 0.6) return [255, 255, 191];  // Moderate-steep
+        if (normValue < 0.8) return [253, 174, 97];   // Steep
+        return [215, 25, 28];                         // Very steep
+
+      // Terrain (similar to ArcGIS Terrain)
+      case 'terrain':
+        if (normValue < 0.2) return [51, 102, 153];     // Deep water
+        if (normValue < 0.3) return [86, 153, 204];     // Shallow water
+        if (normValue < 0.4) return [171, 205, 227];    // Wetlands
+        if (normValue < 0.5) return [191, 191, 127];    // Lowlands
+        if (normValue < 0.6) return [166, 166, 97];     // Plains
+        if (normValue < 0.7) return [153, 140, 66];     // Hills
+        if (normValue < 0.8) return [140, 115, 51];     // Mountains
+        if (normValue < 0.9) return [115, 89, 38];      // High mountains
+        return [179, 179, 179];                         // Snow
+
+      // NDVI (Vegetation index)
+      case 'ndvi':
+        if (normValue < 0.2) return [165, 0, 38];       // Red - No vegetation
+        if (normValue < 0.4) return [215, 48, 39];      // Light red
+        if (normValue < 0.5) return [244, 109, 67];     // Orange
+        if (normValue < 0.6) return [253, 174, 97];     // Light orange
+        if (normValue < 0.7) return [254, 224, 139];    // Yellow
+        if (normValue < 0.8) return [217, 239, 139];    // Light green
+        if (normValue < 0.9) return [166, 217, 106];    // Medium green
+        return [102, 189, 99];                          // Dark green - Dense vegetation
+
+      // Viridis (perceptually uniform)
+      case 'viridis':
+        return [
+          clamp(68 + normValue * 187),
+          clamp(1 + normValue * 254),
+          clamp(84 + (1 - normValue) * 171)
+        ];
+
+      // Plasma (another perceptually uniform)
+      case 'plasma':
+        return [
+          clamp(13 + normValue * 242),
+          clamp(8 + (1 - Math.pow(normValue - 0.5, 2)) * 247),
+          clamp(135 + (1 - normValue) * 120)
+        ];
+
+      // Grayscale
+      case 'grayscale':
+        gray = clamp(normValue * 255);
+        return [gray, gray, gray];
+
+      // DEM (standard elevation)
+      case 'dem':
+        if (normValue < 0.25) return [0, 0, 255];       // Blue - water
+        if (normValue < 0.5) return [0, 255, 0];        // Green - lowlands
+        if (normValue < 0.75) return [165, 42, 42];     // Brown - mountains
+        return [255, 255, 255];                         // White - snow
+
+      // Thermal (heat map)
+      case 'thermal':
+        if (normValue < 0.2) return [0, 0, 0];          // Black
+        if (normValue < 0.4) return [128, 0, 128];      // Purple
+        if (normValue < 0.6) return [255, 0, 0];        // Red
+        if (normValue < 0.8) return [255, 255, 0];      // Yellow
+        return [255, 255, 255];                         // White
+
+      default:
+        gray = clamp(normValue * 255);
+        return [gray, gray, gray];
+    }
+  }
+  private baseUrl = 'http://localhost:5000'; // Change to your FastAPI backend URL
+
+  constructor(private http: HttpClient) { }
+
+  /**
+   * Upload DEM and calculate slope
+   */
+  calculateSlope(demFile: File, slopeType: string, zFactor: number): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', demFile);
+    formData.append('slope_type', slopeType);
+    formData.append('z_factor', zFactor.toString());
+
+    return this.http.post(`${this.baseUrl}/slope`, formData);
+  }
+
+  /**
+   * Upload DEM and calculate aspect
+   */
+  calculateAspect(demFile: File, FlatAreasHandling: string, outputformat: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', demFile);
+    formData.append('FlatAreasHandling', FlatAreasHandling);
+    formData.append('outputformat', outputformat);
+    return this.http.post(`${this.baseUrl}/aspect`, formData);
+  }
+
+  /**
+   * Upload DEM and calculate hillshade
+   */
+  calculateHillshade(demFile: File, zFactor: number, azimuth: number, altitude: number): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', demFile);
+    formData.append('z_factor', zFactor.toString());
+    formData.append('azimuth', azimuth.toString());
+    formData.append('altitude', altitude.toString());
+    return this.http.post(`${this.baseUrl}/hillshade`, formData);
+  }
+
+
+  /**
+   * Upload DEM and calculate roughness
+   */
+  calculateRoughness(demFile: File, zFactor: number, scale: number): Observable<any> {
+    const formData = new FormData();
+    formData.append('dem', demFile);
+    formData.append('z_factor', zFactor.toString());
+    formData.append('scale', scale.toString());
+    return this.http.post(`${this.baseUrl}/roughness`, formData);
+  }
+
+  /**
+   * Upload DEM and calculate TPI
+   */
+  calculateTPI(demFile: File, radius: number): Observable<any> {
+    const formData = new FormData();
+    formData.append('dem', demFile);
+    formData.append('radius', radius.toString());
+    return this.http.post(`${this.baseUrl}/tpi`, formData);
+  }
+
+  /**
+   * Get elevation profile from points
+   */
+  getElevationProfile(demFile: File, points: any[]): Observable<any> {
+    const formData = new FormData();
+    formData.append('dem', demFile);
+    formData.append('points', JSON.stringify(points));
+    return this.http.post(`${this.baseUrl}/elevation-profile`, formData);
+  }
+
+  /**
+   * Get elevation at a specific point
+   */
+  getElevationAtPoint(demFile: File, x: number, y: number): Observable<any> {
+    const formData = new FormData();
+    formData.append('dem', demFile);
+    formData.append('x', x.toString());
+    formData.append('y', y.toString());
+    return this.http.post(`${this.baseUrl}/elevation-point`, formData);
+  }
+}

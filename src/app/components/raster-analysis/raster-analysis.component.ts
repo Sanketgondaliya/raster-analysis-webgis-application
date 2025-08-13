@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TabsModule } from 'primeng/tabs';
 import { FileUploadModule } from 'primeng/fileupload';
 import { ButtonModule } from 'primeng/button';
+import { ReactiveFormsModule } from '@angular/forms';
 
 import Map from 'ol/Map';
 import VectorLayer from 'ol/layer/Vector';
@@ -11,16 +12,13 @@ import VectorSource from 'ol/source/Vector';
 import { Fill, Stroke, Style } from 'ol/style';
 import { Select } from 'primeng/select';
 import { MapService } from '../../services/map.service';
-import { GeoserverService } from '../../services/geoserver.service';
 import { ToastService } from '../../services/toast.service';
-import { Router } from '@angular/router';
 import * as GeoTIFF from 'geotiff';
 
 import Draw, { createBox } from 'ol/interaction/Draw';
 import Polygon from 'ol/geom/Polygon';
 import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 
-import { HttpClient } from '@angular/common/http';
 import { saveAs } from 'file-saver';
 import { RasterAnalysisService } from '../../services/rasteranalysis.service';
 import ImageLayer from 'ol/layer/Image';
@@ -29,143 +27,39 @@ import { CesiumService } from '../../services/cesium.service';
 import { InputNumberModule } from 'primeng/inputnumber';
 import Feature from 'ol/Feature';
 import { InputTextModule } from 'primeng/inputtext';
+import { OptionsService } from './options.service';
+import { RasterGlobalMethodService } from './raster-global-method.service';
 interface Extent {
   west: number | null;
   east: number | null;
   south: number | null;
   north: number | null;
 }
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 
 
 
 @Component({
   selector: 'app-raster-analysis',
   standalone: true,
-  imports: [CommonModule, FormsModule, TabsModule, Select, FileUploadModule, InputNumberModule, InputTextModule, ButtonModule],
+  imports: [CommonModule, FormsModule, TabsModule, ReactiveFormsModule, Select, FileUploadModule, InputNumberModule, InputTextModule, ButtonModule],
   templateUrl: './raster-analysis.component.html',
   styleUrls: ['./raster-analysis.component.scss'],
 })
 export class RasterAnalysisComponent implements OnInit {
   demFile: File | null = null;
-  demAnalysisTypes = [
-    // Basic analysis
-    { label: 'Elevation at Point', value: 'point' },
-    { label: 'Elevation Profile', value: 'profile' },
-
-    // Terrain derivatives
-    {
-      label: 'Slope Map', value: 'slope',
-      description: 'Calculates slope steepness in degrees or percent'
-    },
-    {
-      label: 'Aspect Map', value: 'aspect',
-      description: 'Calculates slope orientation (0-360 degrees)'
-    },
-    {
-      label: 'Hillshade', value: 'hillshade',
-      description: 'Creates shaded relief from elevation data'
-    },
-    {
-      label: 'Curvature', value: 'curvature',
-      description: 'Calculates profile and planimetric curvature'
-    },
-    {
-      label: 'Roughness', value: 'roughness',
-      description: 'Measures surface texture variability'
-    },
-    {
-      label: 'TPI (Topographic Position Index)', value: 'tpi',
-      description: 'Compares elevation to local mean'
-    },
-
-    // Hydrological analysis
-    {
-      label: 'Watershed Delineation', value: 'watershed',
-      description: 'Delineates drainage basins'
-    },
-    {
-      label: 'Flow Accumulation', value: 'flow_accumulation',
-      description: 'Calculates upstream contributing area'
-    },
-    {
-      label: 'Flow Direction', value: 'flow_direction',
-      description: 'Determines drainage direction (D8 algorithm)'
-    },
-    {
-      label: 'Wetness Index', value: 'wetness',
-      description: 'Topographic wetness index (ln(a/tanβ))'
-    },
-    {
-      label: 'Stream Network', value: 'stream_network',
-      description: 'Extracts channel network from flow accumulation'
-    },
-
-    // Advanced terrain analysis
-    {
-      label: 'Viewshed Analysis', value: 'viewshed',
-      description: 'Calculates visible areas from observer points'
-    },
-    {
-      label: 'Solar Radiation', value: 'solar',
-      description: 'Models incoming solar radiation'
-    },
-    {
-      label: 'Terrain Ruggedness', value: 'tri',
-      description: 'Terrain Ruggedness Index'
-    },
-    {
-      label: 'Morphometric Features', value: 'morphometry',
-      description: 'Identifies peaks, pits, ridges, etc.'
-    },
-
-    // Specialized analyses
-    {
-      label: 'Volume Calculation', value: 'volume',
-      description: 'Calculates cut/fill volumes between surfaces'
-    },
-    {
-      label: 'Hydrologic Corrected DEM', value: 'hydro_corrected',
-      description: 'Enforces hydrologic consistency'
-    },
-    {
-      label: 'Channel Network Distance', value: 'channel_distance',
-      description: 'Distance to nearest stream channel'
-    },
-    {
-      label: 'Topographic Wetness', value: 'topo_wetness',
-      description: 'Combines slope and upslope area'
-    },
-
-    // Visualization
-    {
-      label: '3D Surface Model', value: '3d_surface',
-      description: 'Generates 3D visualization of terrain'
-    },
-    {
-      label: 'Contour Lines', value: 'contours',
-      description: 'Generates elevation contour lines'
-    },
-    {
-      label: 'Color Relief', value: 'color_relief',
-      description: 'Applies color ramp to elevation values'
-    }
-  ];
-  demTypes = [
-    { label: 'SRTMGL1 (30m)', value: 'SRTMGL1' },
-    { label: 'SRTMGL3 (90m)', value: 'SRTMGL3' },
-    { label: 'AW3D30 (30m)', value: 'AW3D30' },
-    { label: 'COP30 (30m)', value: 'COP30' },
-  ];
-  colorRamps = [
-    { label: 'Grayscale', value: 'grayscale' },
-    { label: 'Terrain (ArcGIS)', value: 'terrain' },
-    { label: 'Elevation (Topographic)', value: 'elevation' },
-    { label: 'NDVI (Vegetation)', value: 'ndvi' },
-    { label: 'Viridis', value: 'viridis' },
-    { label: 'Plasma', value: 'plasma' },
-    { label: 'DEM Standard', value: 'dem' },
-    { label: 'Thermal', value: 'thermal' }
-  ];
+  slopeForm!: FormGroup;
+  aspectForm!: FormGroup;
+  hillshadeForm!: FormGroup;
+  selectedFile: File | null = null;
+  slopeOptions: any = [];
+  flatAreaHandlingOptions: any = [];
+  aspectOptions: any = [];
+  zFactorOptions: any = [];
+  demAnalysisTypes: any = [];
+  demTypes: any = [];
+  slopeLegend: any = [];
+  colorRamps: any = [];
   selectedDemType: string = 'SRTMGL1';
   selectedColorRamp: string = 'grayscale';
   extent: Extent = {
@@ -189,24 +83,111 @@ export class RasterAnalysisComponent implements OnInit {
     private mapService: MapService,
     private toastService: ToastService,
     private rasterService: RasterAnalysisService,
-    private cesiumService: CesiumService
+    private cesiumService: CesiumService,
+    private fb: FormBuilder,
+    private optionsService: OptionsService,
+    private rasterGlobalMethodService: RasterGlobalMethodService
 
-  ) { }
-  reRenderDEM() {
-    debugger
-    if (this.demFile) {
-      //this.visualizeDemIn3d()
-      this.visualizeTiff(this.demFile);
+  ) {
+    this.slopeForm = this.fb.group({
+      slopeType: [null],      // optional
+      zFactor: [null],        // optional
+      demFile: [null, Validators.required] // only this is required
+    });
+    this.aspectForm = this.fb.group({
+      outputformat: [null],      // optional
+      FlatAreasHandling: [null],        // optional
+      demFile: [null, Validators.required] // only this is required
+    });
+    this.hillshadeForm = this.fb.group({
+      demFile: [null],
+      z_factor: [1.0, [Validators.required, Validators.min(0.1)]],
+      azimuth: [315.0, [Validators.required, Validators.min(0), Validators.max(360)]],
+      altitude: [45.0, [Validators.required, Validators.min(0), Validators.max(90)]]
+    });
 
+  }
+  onFileSelect(event: any) {
+    if (event.files && event.files.length > 0) {
+      this.selectedFile = event.files[0];
+      console.log('Selected file:', this.selectedFile);
+      this.slopeForm.patchValue({ demFile: this.selectedFile });
+      this.slopeForm.get('demFile')?.markAsTouched();
     }
   }
 
-  ngOnInit(): void { 
-        this.initMap();
+
+  onSlopeSubmit() {
+    if (this.slopeForm?.valid && this.selectedFile) {
+      const { slopeType, zFactor } = this.slopeForm.value;
+      this.rasterGlobalMethodService.calculateSlope(this.selectedFile, slopeType, zFactor)
+        .subscribe(res => {
+          console.log('Slope metadata:', res.parameters);
+          const byteCharacters = atob(res.file_base64);
+          const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/tiff' });
+          this.visualizeTiff(blob, 'slope');
+        });
+    } else {
+      console.warn('Form invalid or file not selected');
+    }
   }
-  // Add to RasterAnalysisComponent
+  onAspectSubmit() {
+    if (this.slopeForm?.valid && this.selectedFile) {
+      const { FlatAreasHandling, outputformat } = this.slopeForm.value;
+      this.rasterGlobalMethodService.calculateAspect(this.selectedFile, FlatAreasHandling, outputformat)
+        .subscribe(res => {
+          console.log('Slope metadata:', res.parameters);
+          const byteCharacters = atob(res.file_base64);
+          const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/tiff' });
+          this.visualizeTiff(blob, 'aspect');
+        });
+    } else {
+      console.warn('Form invalid or file not selected');
+    }
+  }
+  onHillshadeSubmit() {
+    if (this.hillshadeForm?.valid && this.selectedFile) {
+      const { z_factor, azimuth, altitude } = this.hillshadeForm.value;
+
+      this.rasterGlobalMethodService
+        .calculateHillshade(this.selectedFile, z_factor, azimuth, altitude)
+        .subscribe(res => {
+          console.log('Hillshade metadata:', res.parameters);
+
+          const byteCharacters = atob(res.file_base64);
+          const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/tiff' });
+
+          this.visualizeTiff(blob, 'hillshade');
+        });
+    } else {
+      console.warn('Hillshade form invalid or file not selected');
+    }
+  }
 
 
+  reRenderDEM() {
+    if (this.demFile) {
+      this.visualizeTiff(this.demFile, this.selectedColorRamp);
+    }
+  }
+
+  ngOnInit(): void {
+    this.initMap();
+    this.slopeOptions = this.optionsService.slopeOptions;
+    this.aspectOptions = this.optionsService.aspectOptions;
+    this.flatAreaHandlingOptions = this.optionsService.flatAreaHandlingOptions;
+    this.zFactorOptions = this.optionsService.zFactorOptions;
+    this.demAnalysisTypes = this.optionsService.demAnalysisTypes;
+    this.demTypes = this.optionsService.demTypes;
+    this.slopeLegend = this.optionsService.slopeLegend;
+    this.colorRamps = this.optionsService.colorRamps;
+  }
   async visualizeDemIn3d() {
     if (!this.demFile) {
       this.toastService.showError('No DEM file uploaded');
@@ -250,89 +231,6 @@ export class RasterAnalysisComponent implements OnInit {
     }
   }
 
-  applyColorRamp(value: number, ramp: string): [number, number, number] {
-    const normValue = Math.max(0, Math.min(1, value));
-    const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-    let gray: number;
-
-    switch (ramp) {
-      // Elevation/Topographic
-      case 'elevation':
-        if (normValue < 0.1) return [0, 77, 168];       // Deep water
-        if (normValue < 0.2) return [0, 112, 255];      // Shallow water
-        if (normValue < 0.3) return [191, 242, 255];    // Shoreline
-        if (normValue < 0.4) return [85, 170, 0];       // Lowlands (green)
-        if (normValue < 0.5) return [139, 139, 0];      // Plains (yellow-green)
-        if (normValue < 0.6) return [180, 140, 50];     // Hills (brown)
-        if (normValue < 0.7) return [150, 100, 50];     // Mountains (dark brown)
-        if (normValue < 0.8) return [130, 80, 40];      // High mountains
-        if (normValue < 0.9) return [100, 60, 30];      // Higher mountains
-        return [255, 255, 255];                         // Snow caps
-
-      // Terrain (similar to ArcGIS Terrain)
-      case 'terrain':
-        if (normValue < 0.2) return [51, 102, 153];     // Deep water
-        if (normValue < 0.3) return [86, 153, 204];     // Shallow water
-        if (normValue < 0.4) return [171, 205, 227];    // Wetlands
-        if (normValue < 0.5) return [191, 191, 127];    // Lowlands
-        if (normValue < 0.6) return [166, 166, 97];     // Plains
-        if (normValue < 0.7) return [153, 140, 66];     // Hills
-        if (normValue < 0.8) return [140, 115, 51];     // Mountains
-        if (normValue < 0.9) return [115, 89, 38];      // High mountains
-        return [179, 179, 179];                         // Snow
-
-      // NDVI (Vegetation index)
-      case 'ndvi':
-        if (normValue < 0.2) return [165, 0, 38];       // Red - No vegetation
-        if (normValue < 0.4) return [215, 48, 39];      // Light red
-        if (normValue < 0.5) return [244, 109, 67];     // Orange
-        if (normValue < 0.6) return [253, 174, 97];     // Light orange
-        if (normValue < 0.7) return [254, 224, 139];    // Yellow
-        if (normValue < 0.8) return [217, 239, 139];    // Light green
-        if (normValue < 0.9) return [166, 217, 106];    // Medium green
-        return [102, 189, 99];                          // Dark green - Dense vegetation
-
-      // Viridis (perceptually uniform)
-      case 'viridis':
-        return [
-          clamp(68 + normValue * 187),
-          clamp(1 + normValue * 254),
-          clamp(84 + (1 - normValue) * 171)
-        ];
-
-      // Plasma (another perceptually uniform)
-      case 'plasma':
-        return [
-          clamp(13 + normValue * 242),
-          clamp(8 + (1 - Math.pow(normValue - 0.5, 2)) * 247),
-          clamp(135 + (1 - normValue) * 120)
-        ];
-
-      // Grayscale
-      case 'grayscale':
-        gray = clamp(normValue * 255);
-        return [gray, gray, gray];
-
-      // DEM (standard elevation)
-      case 'dem':
-        if (normValue < 0.25) return [0, 0, 255];       // Blue - water
-        if (normValue < 0.5) return [0, 255, 0];        // Green - lowlands
-        if (normValue < 0.75) return [165, 42, 42];     // Brown - mountains
-        return [255, 255, 255];                         // White - snow
-
-      // Thermal (heat map)
-      case 'thermal':
-        if (normValue < 0.2) return [0, 0, 0];          // Black
-        if (normValue < 0.4) return [128, 0, 128];      // Purple
-        if (normValue < 0.6) return [255, 0, 0];        // Red
-        if (normValue < 0.8) return [255, 255, 0];      // Yellow
-        return [255, 255, 255];                         // White
-
-      default:
-        gray = clamp(normValue * 255);
-        return [gray, gray, gray];
-    }
-  }
   initMap() {
     this.map = this.mapService.getMap();
 
@@ -356,10 +254,6 @@ export class RasterAnalysisComponent implements OnInit {
     this.addDrawInteraction();
     this.map.updateSize();
   }
-
-  /**
-   * Starts interactive rectangle drawing
-   */
   addDrawInteraction() {
     if (!this.map) {
       console.error('Map not initialized yet');
@@ -417,10 +311,6 @@ export class RasterAnalysisComponent implements OnInit {
 
     this.map.addInteraction(this.draw);
   }
-
-  /**
-   * Draws a rectangle based on manual West/East/South/North entry
-   */
   drawRectangleFromExtent() {
     if (!this.map || !this.vectorSource) return;
 
@@ -456,9 +346,7 @@ export class RasterAnalysisComponent implements OnInit {
     // Zoom to rectangle
     this.map.getView().fit(polygon, { padding: [20, 20, 20, 20] });
   }
-
   drawRectangleFromDirectExtent() {
-    debugger
     if (!this.map || !this.vectorSource) return;
 
     if (!this._extent || typeof this._extent !== 'string') return;
@@ -496,17 +384,13 @@ export class RasterAnalysisComponent implements OnInit {
     this.vectorSource.addFeature(feature);
     this.map.getView().fit(polygon, { padding: [20, 20, 20, 20] });
   }
-
-
   async onDemFileUpload(event: any) {
     const file = event.files[0];
     if (!file) return;
-
     this.demFile = file;
     console.log('DEM file uploaded:', file.name);
-
     try {
-      await this.visualizeTiff(file);
+      await this.visualizeTiff(file, this.selectedColorRamp);
       //this.visualizeDemIn3d();
       this.toastService.showSuccess('DEM visualized successfully!');
     } catch (error) {
@@ -514,16 +398,6 @@ export class RasterAnalysisComponent implements OnInit {
       this.toastService.showError('Failed to visualize uploaded DEM.');
     }
   }
-
-  runDemAnalysis() {
-    if (!this.demFile || !this.selectedDemAnalysis) {
-      alert('Upload DEM file and select analysis type.');
-      return;
-    }
-    console.log('Running DEM analysis for:', this.demFile.name, 'Type:', this.selectedDemAnalysis);
-    // TODO: Implement backend call here
-  }
-
   async downloadOpenTopographyDem() {
     if (!this.bbox) {
       alert('Draw a rectangle on the map to select area.');
@@ -540,7 +414,7 @@ export class RasterAnalysisComponent implements OnInit {
       if (!blob) throw new Error('No data returned from download service');
 
       saveAs(blob, `dem_tile_${this.selectedDemType}.tif`);
-      await this.visualizeTiff(blob);
+      await this.visualizeTiff(blob, 'dem');
 
       this.toastService.showSuccess('DEM tile downloaded and displayed!');
     } catch (err) {
@@ -548,32 +422,23 @@ export class RasterAnalysisComponent implements OnInit {
       this.toastService.showError('Failed to download DEM tile.');
     }
   }
-
-  private async visualizeTiff(input: File | Blob): Promise<void> {
+  private async visualizeTiff(input: File | Blob, style: string): Promise<void> {
     try {
-      // Remove existing DEM layer if present
+      var layerNm = 'demLayer';
       this.map.getLayers().getArray()
         .filter(layer => layer.get('name') === 'demLayer')
         .forEach(layer => this.map.removeLayer(layer));
-
       const arrayBuffer = await (input instanceof File
         ? input.arrayBuffer()
         : input.arrayBuffer());
-
       const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
       const image = await tiff.getImage();
-
-      // Get dimensions and bounding box
       const width = image.getWidth();
       const height = image.getHeight();
       const extent4326 = image.getBoundingBox();
       const extent3857 = transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
-
-      // Read raster data
       const rasterData = await image.readRasters();
       const values = rasterData[0];
-
-      // Find min/max without spreading large arrays
       let min = Infinity;
       let max = -Infinity;
 
@@ -587,18 +452,14 @@ export class RasterAnalysisComponent implements OnInit {
           if (val > max) max = val;
         }
       }
-
-      // Create canvas for visualization
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d')!;
       const imageData = ctx.createImageData(width, height);
-
-      // Fill image data with color values based on selected ramp
       if (typeof values === 'number') {
         const norm = (values - min) / (max - min);
-        const [r, g, b] = this.applyColorRamp(norm, this.selectedColorRamp);
+        const [r, g, b] = this.rasterGlobalMethodService.applyColorRamp(norm, style);
         for (let i = 0; i < imageData.data.length; i += 4) {
           imageData.data[i] = r;     // R
           imageData.data[i + 1] = g; // G
@@ -609,7 +470,7 @@ export class RasterAnalysisComponent implements OnInit {
         const length = Math.min(values.length, width * height);
         for (let i = 0; i < length; i++) {
           const norm = (values[i] - min) / (max - min);
-          const [r, g, b] = this.applyColorRamp(norm, this.selectedColorRamp);
+          const [r, g, b] = this.rasterGlobalMethodService.applyColorRamp(norm, style);
           const idx = i * 4;
           imageData.data[idx] = r;     // R
           imageData.data[idx + 1] = g; // G
@@ -619,10 +480,9 @@ export class RasterAnalysisComponent implements OnInit {
       }
 
       ctx.putImageData(imageData, 0, 0);
-
-      // Create and add image layer to map with a name
       const imageLayer = new ImageLayer({
-        zIndex:9999,
+        zIndex: 9999,
+        className: layerNm,
         source: new Static({
           url: canvas.toDataURL(),
           imageExtent: extent3857,
@@ -630,10 +490,9 @@ export class RasterAnalysisComponent implements OnInit {
         }),
         opacity: 0.7,
         properties: {
-          name: 'demLayer' // Add a name property for easy identification
+          name: layerNm
         }
       });
-
       this.map.addLayer(imageLayer);
       this.map.getView().fit(extent3857, { padding: [50, 50, 50, 50] });
     } catch (error) {

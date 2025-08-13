@@ -1,0 +1,29 @@
+.slope-legend {
+  background: white;
+  border: 1px solid #ccc;
+  width: fit-content;
+  font-size: 0.85rem;
+}
+
+.legend-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+}
+
+.legend-color {
+  width: 20px;
+  height: 12px;
+  margin-right: 6px;
+  border: 1px solid #999;
+}
