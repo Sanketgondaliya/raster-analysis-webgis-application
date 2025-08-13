@@ -18,7 +18,7 @@ import * as GeoTIFF from 'geotiff';
 
 import Draw, { createBox } from 'ol/interaction/Draw';
 import Polygon from 'ol/geom/Polygon';
-import { toLonLat, transformExtent } from 'ol/proj';
+import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 
 import { HttpClient } from '@angular/common/http';
 import { saveAs } from 'file-saver';
@@ -26,74 +26,130 @@ import { RasterAnalysisService } from '../../services/rasteranalysis.service';
 import ImageLayer from 'ol/layer/Image';
 import Static from 'ol/source/ImageStatic';
 import { CesiumService } from '../../services/cesium.service';
+import { InputNumberModule } from 'primeng/inputnumber';
+import Feature from 'ol/Feature';
+import { InputTextModule } from 'primeng/inputtext';
+interface Extent {
+  west: number | null;
+  east: number | null;
+  south: number | null;
+  north: number | null;
+}
+
+
+
 @Component({
   selector: 'app-raster-analysis',
   standalone: true,
-  imports: [CommonModule, FormsModule, TabsModule, Select, FileUploadModule, ButtonModule],
+  imports: [CommonModule, FormsModule, TabsModule, Select, FileUploadModule, InputNumberModule, InputTextModule, ButtonModule],
   templateUrl: './raster-analysis.component.html',
   styleUrls: ['./raster-analysis.component.scss'],
 })
-export class RasterAnalysisComponent implements OnInit, AfterViewInit, OnDestroy {
+export class RasterAnalysisComponent implements OnInit {
   demFile: File | null = null;
- demAnalysisTypes = [
+  demAnalysisTypes = [
     // Basic analysis
     { label: 'Elevation at Point', value: 'point' },
     { label: 'Elevation Profile', value: 'profile' },
-    
+
     // Terrain derivatives
-    { label: 'Slope Map', value: 'slope', 
-      description: 'Calculates slope steepness in degrees or percent' },
-    { label: 'Aspect Map', value: 'aspect', 
-      description: 'Calculates slope orientation (0-360 degrees)' },
-    { label: 'Hillshade', value: 'hillshade', 
-      description: 'Creates shaded relief from elevation data' },
-    { label: 'Curvature', value: 'curvature', 
-      description: 'Calculates profile and planimetric curvature' },
-    { label: 'Roughness', value: 'roughness', 
-      description: 'Measures surface texture variability' },
-    { label: 'TPI (Topographic Position Index)', value: 'tpi', 
-      description: 'Compares elevation to local mean' },
-    
+    {
+      label: 'Slope Map', value: 'slope',
+      description: 'Calculates slope steepness in degrees or percent'
+    },
+    {
+      label: 'Aspect Map', value: 'aspect',
+      description: 'Calculates slope orientation (0-360 degrees)'
+    },
+    {
+      label: 'Hillshade', value: 'hillshade',
+      description: 'Creates shaded relief from elevation data'
+    },
+    {
+      label: 'Curvature', value: 'curvature',
+      description: 'Calculates profile and planimetric curvature'
+    },
+    {
+      label: 'Roughness', value: 'roughness',
+      description: 'Measures surface texture variability'
+    },
+    {
+      label: 'TPI (Topographic Position Index)', value: 'tpi',
+      description: 'Compares elevation to local mean'
+    },
+
     // Hydrological analysis
-    { label: 'Watershed Delineation', value: 'watershed', 
-      description: 'Delineates drainage basins' },
-    { label: 'Flow Accumulation', value: 'flow_accumulation', 
-      description: 'Calculates upstream contributing area' },
-    { label: 'Flow Direction', value: 'flow_direction', 
-      description: 'Determines drainage direction (D8 algorithm)' },
-    { label: 'Wetness Index', value: 'wetness', 
-      description: 'Topographic wetness index (ln(a/tanβ))' },
-    { label: 'Stream Network', value: 'stream_network', 
-      description: 'Extracts channel network from flow accumulation' },
-    
+    {
+      label: 'Watershed Delineation', value: 'watershed',
+      description: 'Delineates drainage basins'
+    },
+    {
+      label: 'Flow Accumulation', value: 'flow_accumulation',
+      description: 'Calculates upstream contributing area'
+    },
+    {
+      label: 'Flow Direction', value: 'flow_direction',
+      description: 'Determines drainage direction (D8 algorithm)'
+    },
+    {
+      label: 'Wetness Index', value: 'wetness',
+      description: 'Topographic wetness index (ln(a/tanβ))'
+    },
+    {
+      label: 'Stream Network', value: 'stream_network',
+      description: 'Extracts channel network from flow accumulation'
+    },
+
     // Advanced terrain analysis
-    { label: 'Viewshed Analysis', value: 'viewshed', 
-      description: 'Calculates visible areas from observer points' },
-    { label: 'Solar Radiation', value: 'solar', 
-      description: 'Models incoming solar radiation' },
-    { label: 'Terrain Ruggedness', value: 'tri', 
-      description: 'Terrain Ruggedness Index' },
-    { label: 'Morphometric Features', value: 'morphometry', 
-      description: 'Identifies peaks, pits, ridges, etc.' },
-    
+    {
+      label: 'Viewshed Analysis', value: 'viewshed',
+      description: 'Calculates visible areas from observer points'
+    },
+    {
+      label: 'Solar Radiation', value: 'solar',
+      description: 'Models incoming solar radiation'
+    },
+    {
+      label: 'Terrain Ruggedness', value: 'tri',
+      description: 'Terrain Ruggedness Index'
+    },
+    {
+      label: 'Morphometric Features', value: 'morphometry',
+      description: 'Identifies peaks, pits, ridges, etc.'
+    },
+
     // Specialized analyses
-    { label: 'Volume Calculation', value: 'volume', 
-      description: 'Calculates cut/fill volumes between surfaces' },
-    { label: 'Hydrologic Corrected DEM', value: 'hydro_corrected', 
-      description: 'Enforces hydrologic consistency' },
-    { label: 'Channel Network Distance', value: 'channel_distance', 
-      description: 'Distance to nearest stream channel' },
-    { label: 'Topographic Wetness', value: 'topo_wetness', 
-      description: 'Combines slope and upslope area' },
-    
+    {
+      label: 'Volume Calculation', value: 'volume',
+      description: 'Calculates cut/fill volumes between surfaces'
+    },
+    {
+      label: 'Hydrologic Corrected DEM', value: 'hydro_corrected',
+      description: 'Enforces hydrologic consistency'
+    },
+    {
+      label: 'Channel Network Distance', value: 'channel_distance',
+      description: 'Distance to nearest stream channel'
+    },
+    {
+      label: 'Topographic Wetness', value: 'topo_wetness',
+      description: 'Combines slope and upslope area'
+    },
+
     // Visualization
-    { label: '3D Surface Model', value: '3d_surface', 
-      description: 'Generates 3D visualization of terrain' },
-    { label: 'Contour Lines', value: 'contours', 
-      description: 'Generates elevation contour lines' },
-    { label: 'Color Relief', value: 'color_relief', 
-      description: 'Applies color ramp to elevation values' }
-];
+    {
+      label: '3D Surface Model', value: '3d_surface',
+      description: 'Generates 3D visualization of terrain'
+    },
+    {
+      label: 'Contour Lines', value: 'contours',
+      description: 'Generates elevation contour lines'
+    },
+    {
+      label: 'Color Relief', value: 'color_relief',
+      description: 'Applies color ramp to elevation values'
+    }
+  ];
   demTypes = [
     { label: 'SRTMGL1 (30m)', value: 'SRTMGL1' },
     { label: 'SRTMGL3 (90m)', value: 'SRTMGL3' },
@@ -112,6 +168,12 @@ export class RasterAnalysisComponent implements OnInit, AfterViewInit, OnDestroy
   ];
   selectedDemType: string = 'SRTMGL1';
   selectedColorRamp: string = 'grayscale';
+  extent: Extent = {
+    west: null,
+    east: null,
+    south: null,
+    north: null
+  };
 
   selectedDemAnalysis: string | null = null;
 
@@ -121,13 +183,13 @@ export class RasterAnalysisComponent implements OnInit, AfterViewInit, OnDestroy
   vectorLayer!: VectorLayer;
 
   bbox: number[] | null = null;
-
+  _extent: any;
 
   constructor(
     private mapService: MapService,
     private toastService: ToastService,
     private rasterService: RasterAnalysisService,
-        private cesiumService:CesiumService
+    private cesiumService: CesiumService
 
   ) { }
   reRenderDEM() {
@@ -139,52 +201,54 @@ export class RasterAnalysisComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  ngOnInit(): void { }
-// Add to RasterAnalysisComponent
-
-
-async visualizeDemIn3d() {
-  if (!this.demFile) {
-    this.toastService.showError('No DEM file uploaded');
-    return;
+  ngOnInit(): void { 
+        this.initMap();
   }
+  // Add to RasterAnalysisComponent
 
-  try {
-    const arrayBuffer = await this.demFile.arrayBuffer();
-    const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
-    const image = await tiff.getImage();
-    
-    // Get DEM bounds
-    const bbox = image.getBoundingBox();
-    
-    // Read raster data
-    const rasterData = await image.readRasters();
-    const values = rasterData[0];
-    
-    // Prepare DEM data for Cesium
-    const demData = {
-      values,
-      width: image.getWidth(),
-      height: image.getHeight()
-    };
-    
-    // Add to Cesium
-    await this.cesiumService.addDemLayer(demData, {
-      name: 'Uploaded DEM',
-      bounds: {
-        west: bbox[0],
-        south: bbox[1],
-        east: bbox[2],
-        north: bbox[3]
-      }
-    });
-    
-    this.toastService.showSuccess('DEM displayed in 3D view');
-  } catch (error) {
-    console.error('Error displaying DEM in 3D:', error);
-    this.toastService.showError('Failed to display DEM in 3D view');
+
+  async visualizeDemIn3d() {
+    if (!this.demFile) {
+      this.toastService.showError('No DEM file uploaded');
+      return;
+    }
+
+    try {
+      const arrayBuffer = await this.demFile.arrayBuffer();
+      const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
+      const image = await tiff.getImage();
+
+      // Get DEM bounds
+      const bbox = image.getBoundingBox();
+
+      // Read raster data
+      const rasterData = await image.readRasters();
+      const values = rasterData[0];
+
+      // Prepare DEM data for Cesium
+      const demData = {
+        values,
+        width: image.getWidth(),
+        height: image.getHeight()
+      };
+
+      // Add to Cesium
+      await this.cesiumService.addDemLayer(demData, {
+        name: 'Uploaded DEM',
+        bounds: {
+          west: bbox[0],
+          south: bbox[1],
+          east: bbox[2],
+          north: bbox[3]
+        }
+      });
+
+      this.toastService.showSuccess('DEM displayed in 3D view');
+    } catch (error) {
+      console.error('Error displaying DEM in 3D:', error);
+      this.toastService.showError('Failed to display DEM in 3D view');
+    }
   }
-}
 
   applyColorRamp(value: number, ramp: string): [number, number, number] {
     const normValue = Math.max(0, Math.min(1, value));
@@ -269,12 +333,6 @@ async visualizeDemIn3d() {
         return [gray, gray, gray];
     }
   }
-
-
-
-
-  ngOnDestroy(): void { }
-
   initMap() {
     this.map = this.mapService.getMap();
 
@@ -294,58 +352,151 @@ async visualizeDemIn3d() {
     this.map.addLayer(this.vectorLayer);
   }
   startDraw() {
-  this.addDrawInteraction();
-}
-
-ngAfterViewInit(): void {
-  setTimeout(() => {
     this.initMap();
     this.addDrawInteraction();
     this.map.updateSize();
-  }, 0);
-}
-
-addDrawInteraction() {
-  if (!this.map) {
-    console.error('Map not initialized yet');
-    return;
   }
 
-  if (this.draw) {
-    this.map.removeInteraction(this.draw);
+  /**
+   * Starts interactive rectangle drawing
+   */
+  addDrawInteraction() {
+    if (!this.map) {
+      console.error('Map not initialized yet');
+      return;
+    }
+
+    if (this.draw) {
+      this.map.removeInteraction(this.draw);
+    }
+
+    this.vectorSource.clear();
+
+    this.draw = new Draw({
+      source: this.vectorSource,
+      type: 'Circle',
+      geometryFunction: createBox(),
+      style: new Style({
+        stroke: new Stroke({ color: '#f00', width: 2 }),
+        fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
+      }),
+    });
+
+    this.draw.on('drawstart', () => {
+      this.vectorSource.clear();
+    });
+
+    this.draw.on('drawend', (event) => {
+      const geometry = event.feature.getGeometry();
+      if (geometry instanceof Polygon) {
+        const coordinates = geometry.getCoordinates()[0];
+        const lonLatCoords = coordinates.map(coord => toLonLat(coord));
+        const lons = lonLatCoords.map(c => c[0]);
+        const lats = lonLatCoords.map(c => c[1]);
+
+        // Store bbox
+        this.bbox = [
+          Math.min(...lons),
+          Math.min(...lats),
+          Math.max(...lons),
+          Math.max(...lats)
+        ];
+
+        // Update extent inputs
+        this.extent = {
+          west: this.bbox[0],
+          south: this.bbox[1],
+          east: this.bbox[2],
+          north: this.bbox[3]
+        };
+
+        console.log('Selected bounding box:', this.bbox);
+      }
+      this.map.removeInteraction(this.draw);
+    });
+
+    this.map.addInteraction(this.draw);
   }
 
-  this.vectorSource.clear();
+  /**
+   * Draws a rectangle based on manual West/East/South/North entry
+   */
+  drawRectangleFromExtent() {
+    if (!this.map || !this.vectorSource) return;
 
-  this.draw = new Draw({
-    source: this.vectorSource,
-    type: 'Circle',
-    geometryFunction: createBox(),
-    style: new Style({
+    const { west, east, south, north } = this.extent;
+    if (west == null || east == null || south == null || north == null) {
+      console.warn("Extent values missing");
+      return;
+    }
+
+    // Clear previous shapes
+    this.vectorSource.clear();
+
+    // Create rectangle geometry
+    const coords = [
+      [west, south],
+      [west, north],
+      [east, north],
+      [east, south],
+      [west, south] // Close polygon
+    ].map(coord => fromLonLat(coord));
+
+    const polygon = new Polygon([coords]);
+
+    // Add to vector source
+    const feature = new Feature(polygon);
+    feature.setStyle(new Style({
       stroke: new Stroke({ color: '#f00', width: 2 }),
       fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
-    }),
-  });
+    }));
 
-  this.draw.on('drawstart', () => {
-    this.vectorSource.clear();
-  });
+    this.vectorSource.addFeature(feature);
 
-  this.draw.on('drawend', (event) => {
-    const geometry = event.feature.getGeometry();
-    if (geometry instanceof Polygon) {
-      const coordinates = geometry.getCoordinates()[0];
-      const lonLatCoords = coordinates.map(coord => toLonLat(coord));
-      const lons = lonLatCoords.map(c => c[0]);
-      const lats = lonLatCoords.map(c => c[1]);
-      this.bbox = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
-      console.log('Selected bounding box:', this.bbox);
+    // Zoom to rectangle
+    this.map.getView().fit(polygon, { padding: [20, 20, 20, 20] });
+  }
+
+  drawRectangleFromDirectExtent() {
+    debugger
+    if (!this.map || !this.vectorSource) return;
+
+    if (!this._extent || typeof this._extent !== 'string') return;
+
+    // Parse the comma-separated string
+    const parts = this._extent.split(',').map(v => parseFloat(v.trim()));
+
+    if (parts.length !== 4 || parts.some(isNaN)) {
+      console.warn("Invalid extent format. Expected: south,west,north,east");
+      return;
     }
-    this.map.removeInteraction(this.draw);
-  });
 
-  this.map.addInteraction(this.draw);
-}
+    const [south, west, north, east] = parts; // Adjust order if needed
+
+    // Clear previous shapes
+    this.vectorSource.clear();
+
+    // Create rectangle geometry
+    const coords = [
+      [west, south],
+      [west, north],
+      [east, north],
+      [east, south],
+      [west, south]
+    ].map(coord => fromLonLat(coord));
+
+    const polygon = new Polygon([coords]);
+    const feature = new Feature(polygon);
+
+    feature.setStyle(new Style({
+      stroke: new Stroke({ color: '#f00', width: 2 }),
+      fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
+    }));
+
+    this.vectorSource.addFeature(feature);
+    this.map.getView().fit(polygon, { padding: [20, 20, 20, 20] });
+  }
+
 
   async onDemFileUpload(event: any) {
     const file = event.files[0];
@@ -471,6 +622,7 @@ addDrawInteraction() {
 
       // Create and add image layer to map with a name
       const imageLayer = new ImageLayer({
+        zIndex:9999,
         source: new Static({
           url: canvas.toDataURL(),
           imageExtent: extent3857,
@@ -489,88 +641,4 @@ addDrawInteraction() {
       throw error;
     }
   }
-
-  private async visualizeTiffCopy(input: File | Blob): Promise<void> {
-    try {
-      const arrayBuffer = await (input instanceof File
-        ? input.arrayBuffer()
-        : input.arrayBuffer());
-
-      const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
-      const image = await tiff.getImage();
-
-      // Get dimensions and bounding box
-      const width = image.getWidth();
-      const height = image.getHeight();
-      const extent4326 = image.getBoundingBox();
-      const extent3857 = transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
-
-      // Read raster data
-      const rasterData = await image.readRasters();
-      const values = rasterData[0];
-
-      // Find min/max without spreading large arrays
-      let min = Infinity;
-      let max = -Infinity;
-
-      if (typeof values === 'number') {
-        min = max = values;
-      } else {
-        // Handle both TypedArrays and regular arrays
-        const length = values.length;
-        for (let i = 0; i < length; i++) {
-          const val = values[i];
-          if (val < min) min = val;
-          if (val > max) max = val;
-        }
-      }
-
-      // Create canvas for visualization
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d')!;
-      const imageData = ctx.createImageData(width, height);
-
-      // Fill image data with grayscale values
-      if (typeof values === 'number') {
-        const norm = ((values - min) / (max - min)) * 255;
-        for (let i = 0; i < imageData.data.length; i += 4) {
-          imageData.data[i] = norm;     // R
-          imageData.data[i + 1] = norm; // G
-          imageData.data[i + 2] = norm; // B
-          imageData.data[i + 3] = 255;  // A
-        }
-      } else {
-        const length = Math.min(values.length, width * height);
-        for (let i = 0; i < length; i++) {
-          const norm = ((values[i] - min) / (max - min)) * 255;
-          const idx = i * 4;
-          imageData.data[idx] = norm;     // R
-          imageData.data[idx + 1] = norm; // G
-          imageData.data[idx + 2] = norm; // B
-          imageData.data[idx + 3] = 255;  // A
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-
-      // Create and add image layer to map
-      const imageLayer = new ImageLayer({
-        source: new Static({
-          url: canvas.toDataURL(),
-          imageExtent: extent3857,
-          projection: 'EPSG:3857'
-        }),
-        opacity: 0.7
-      });
-
-      this.map.addLayer(imageLayer);
-      this.map.getView().fit(extent3857, { padding: [50, 50, 50, 50] });
-    } catch (error) {
-      console.error('Error visualizing DEM:', error);
-      throw error;
-    }
-  }
-
 }

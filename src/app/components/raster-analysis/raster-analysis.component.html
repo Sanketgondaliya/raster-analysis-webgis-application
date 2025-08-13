@@ -7,63 +7,124 @@
     <p-tabpanels>
       <!-- DEM TAB -->
       <p-tabpanel value="0">
+        <div class="card">
+          <p-tabs value="0">
+            <p-tablist>
+              <p-tab value="0">Download</p-tab>
+              <p-tab value="1">Upload</p-tab>
+            </p-tablist>
+            <p-tabpanels>
+              <p-tabpanel value="0">
+                <div class="grid">
+
+                  <!-- Draw Area Button -->
+                  <div class="col-12">
+                    <button pButton label="Draw Area" class="p-button-warning w-full" (click)="startDraw()"></button>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="field">
+                      <label for="_Extent">Extent</label>
+                      <input pInputText id="Extent" type="text"
+                        placeholder="33.88968193520822,77.99334738638072,34.174201765452835,78.57836935903697"
+                        [(ngModel)]="_extent" (change)="drawRectangleFromDirectExtent()" class="w-full">
+                    </div>
+                  </div>
+
+
+                  <!-- Extent Inputs -->
+                  <!-- West -->
+                  <div class="col-3">
+                    <div class="field">
+                      <label for="west">West</label>
+                      <input pInputText id="west" type="number" [(ngModel)]="extent.west"
+                        (change)="drawRectangleFromExtent()" class="w-full">
+                    </div>
+                  </div>
+
+                  <!-- East -->
+                  <div class="col-3">
+                    <div class="field">
+                      <label for="east">East</label>
+                      <input pInputText id="east" type="number" [(ngModel)]="extent.east"
+                        (change)="drawRectangleFromExtent()" class="w-full">
+                    </div>
+                  </div>
+
+                  <!-- South -->
+                  <div class="col-3">
+                    <div class="field">
+                      <label for="south">South</label>
+                      <input pInputText id="south" type="number" [(ngModel)]="extent.south"
+                        (change)="drawRectangleFromExtent()" class="w-full">
+                    </div>
+                  </div>
+
+                  <!-- North -->
+                  <div class="col-3">
+                    <div class="field">
+                      <label for="north">North</label>
+                      <input pInputText id="north" type="number" [(ngModel)]="extent.north"
+                        (change)="drawRectangleFromExtent()" class="w-full">
+                    </div>
+                  </div>
+
+
+                  <!-- Select Analysis Type -->
+                  <div class="col-12">
+                    <div class="field">
+                      <label for="analysisType">Select Analysis Type</label>
+                      <p-select [options]="demTypes" [(ngModel)]="selectedDemType" optionLabel="label"
+                        optionValue="value" class="w-full">
+                      </p-select>
+                    </div>
+                  </div>
+
+                  <!-- Download Button -->
+                  <div class="col-12">
+                    <button pButton label="Download DEM Tile" class="p-button-info w-full"
+                      (click)="downloadOpenTopographyDem()"></button>
+                  </div>
+
+                </div>
+
+              </p-tabpanel>
+              <p-tabpanel value="1">
+                <div class="grid">
+                  <div class="col-12">
+                    <div class="field">
+                      <label for="demUpload">Upload DEM File (GeoTIFF)</label>
+                      <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                        (onSelect)="onDemFileUpload($event)" chooseLabel="Choose DEM"></p-fileUpload>
+                    </div>
+                    <div class="field">
+                      <label for="colorRamp">Select Color Ramp</label>
+                      <p-select [options]="colorRamps" [(ngModel)]="selectedColorRamp" placeholder="Select Color Ramp"
+                        class="w-full">
+                      </p-select>
+                    </div>
+                    <div class="field">
+                      <button pButton label="Apply Color Ramp" class="p-button-secondary"
+                        (click)="reRenderDEM()"></button>
+                    </div>
+                  </div>
+                </div>
+              </p-tabpanel>
+            </p-tabpanels>
+          </p-tabs>
+        </div>
         <div class="p-fluid">
-          <!-- File Upload -->
-          <div class="field">
-            <label for="demUpload">Upload DEM File (GeoTIFF)</label>
-            <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
-              (onSelect)="onDemFileUpload($event)" chooseLabel="Choose DEM"></p-fileUpload>
-
-          </div>
-
-          <div class="field mt-3">
-            <button pButton label="Draw Area" class="p-button-warning" (click)="startDraw()"></button>
-          </div>
-
-          <!-- Analysis Type Dropdown -->
-          <div class="field mt-3">
+          <!-- <div class="field mt-3">
             <label for="analysisType">Select Analysis Type</label>
             <p-select [options]="demAnalysisTypes" [(ngModel)]="selectedDemAnalysis" placeholder="Select Analysis Type"
               optionLabel="label" class="w-full"></p-select>
           </div>
-
-          <!-- Trigger Button -->
           <div class="field mt-3">
             <button pButton label="Run Analysis" class="p-button-success" (click)="runDemAnalysis()"
               [disabled]="!selectedDemAnalysis || !demFile"></button>
-          </div>
+          </div> -->
         </div>
-
-        <div class="field mt-3">
-          <label for="analysisType">Select Analysis Type</label>
-          <p-select [options]="demTypes" [(ngModel)]="selectedDemType" optionLabel="label" optionValue="value"
-            class="w-full">
-          </p-select>
-
-        </div>
-        <div class="field mt-3">
-          <label for="colorRamp">Select Color Ramp</label>
-          <p-select [options]="colorRamps" [(ngModel)]="selectedColorRamp" placeholder="Select Color Ramp"
-            class="w-full">
-          </p-select>
-        </div>
-
-        <!-- DEM Download Section -->
-        <hr class="my-4" />
-        <div class="p-fluid">
-          <h5>Download OpenTopography DEM Tile</h5>
-          <div class="field mt-2">
-            <button pButton label="Download DEM Tile" class="p-button-info"
-              (click)="downloadOpenTopographyDem()"></button>
-          </div>
-        </div>
-        <div class="field mt-2">
-          <button pButton label="Apply Color Ramp" class="p-button-secondary" (click)="reRenderDEM()"
-            ></button>
-        </div>
-
       </p-tabpanel>
-
       <!-- SATELLITE TAB -->
       <p-tabpanel value="1">
         <p class="m-0">Satellite</p>
