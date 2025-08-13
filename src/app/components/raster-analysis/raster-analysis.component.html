@@ -12,6 +12,13 @@
             <p-tablist>
               <p-tab value="0">Download</p-tab>
               <p-tab value="1">Upload</p-tab>
+              <p-tab value="2">Slope</p-tab>
+              <p-tab value="3">Aspect</p-tab>
+              <p-tab value="4">Hillshade</p-tab>
+              <p-tab value="5">Roughness</p-tab>
+              <p-tab value="6">TPI</p-tab>
+              <p-tab value="7">Elevation Profile</p-tab>
+              <p-tab value="8">Elevation At Point</p-tab>
             </p-tablist>
             <p-tabpanels>
               <p-tabpanel value="0">
@@ -91,23 +98,65 @@
               </p-tabpanel>
               <p-tabpanel value="1">
                 <div class="grid">
+
                   <div class="col-12">
                     <div class="field">
-                      <label for="demUpload">Upload DEM File (GeoTIFF)</label>
                       <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
                         (onSelect)="onDemFileUpload($event)" chooseLabel="Choose DEM"></p-fileUpload>
                     </div>
+                  </div>
+
+                  <div class="col-12">
                     <div class="field">
                       <label for="colorRamp">Select Color Ramp</label>
                       <p-select [options]="colorRamps" [(ngModel)]="selectedColorRamp" placeholder="Select Color Ramp"
                         class="w-full">
                       </p-select>
                     </div>
+                  </div>
+
+                  <div class="col-12">
                     <div class="field">
-                      <button pButton label="Apply Color Ramp" class="p-button-secondary"
+                      <button pButton label="Apply Color Ramp" class="p-button-info w-full"
                         (click)="reRenderDEM()"></button>
                     </div>
                   </div>
+
+                </div>
+              </p-tabpanel>
+              <p-tabpanel value="2">
+                <div class="grid">
+                  <p>Narendra Solpe</p>
+                </div>
+              </p-tabpanel>
+              <p-tabpanel value="3">
+                <div class="grid">
+                  <p>Narendra Aspect</p>
+                </div>
+              </p-tabpanel>
+              <p-tabpanel value="4">
+                <div class="grid">
+                  <p>Narendra Hillshade</p>
+                </div>
+              </p-tabpanel>
+              <p-tabpanel value="5">
+                <div class="grid">
+                  <p>Narendra Roughness</p>
+                </div>
+              </p-tabpanel>
+              <p-tabpanel value="6">
+                <div class="grid">
+                  <p>Narendra TPI</p>
+                </div>
+              </p-tabpanel>
+              <p-tabpanel value="7">
+                <div class="grid">
+                  <p>Narendra Elevation Profile</p>
+                </div>
+              </p-tabpanel>
+              <p-tabpanel value="8">
+                <div class="grid">
+                  <p>Narendra Elevation At Point</p>
                 </div>
               </p-tabpanel>
             </p-tabpanels>
