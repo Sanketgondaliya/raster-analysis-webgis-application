@@ -165,7 +165,7 @@ export class RasterGlobalMethodService {
         return [gray, gray, gray];
     }
   }
-  private baseUrl = 'http://localhost:5000'; // Change to your FastAPI backend URL
+  private baseUrl = 'http://192.168.20.49:5000'; // Change to your FastAPI backend URL
 
   constructor(private http: HttpClient) { }
 

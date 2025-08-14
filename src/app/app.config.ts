@@ -2,17 +2,20 @@
 import { ApplicationConfig } from '@angular/core';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { providePrimeNG } from 'primeng/config';
-import { provideRouter, withHashLocation } from '@angular/router'; // <-- import withHashLocation
+import { provideRouter, withHashLocation } from '@angular/router';
 import Aura from '@primeuix/themes/aura';
-
-import { routes } from './app.routes';  // Ensure your app.routes.ts exports the routes array
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { MessageService } from "primeng/api";
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { LoadingInterceptor } from './services/loading.interceptor';
+
+import { routes } from './app.routes';
+
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideRouter(routes, withHashLocation()),  // <-- Enable hash-based routing
+    provideRouter(routes, withHashLocation()),
     provideAnimationsAsync(),
-    provideHttpClient(),
+    provideHttpClient(withInterceptorsFromDi()), // <-- Important for DI interceptors
     providePrimeNG({
       theme: {
         preset: Aura,
@@ -24,5 +27,6 @@ export const appConfig: ApplicationConfig = {
       }
     }),
     MessageService,
+    { provide: HTTP_INTERCEPTORS, useClass: LoadingInterceptor, multi: true } // <-- Register interceptor
   ]
 };

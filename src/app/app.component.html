@@ -1,1 +1,5 @@
+<!-- app.component.html -->
+<div *ngIf="loadingService.loading$ | async" class="overlay">
+  <div class="spinner"></div>
+</div>
 <app-layout></app-layout>
