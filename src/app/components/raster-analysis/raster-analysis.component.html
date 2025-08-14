@@ -17,8 +17,9 @@
               <p-tab value="4">Hillshade</p-tab>
               <p-tab value="5">Roughness</p-tab>
               <p-tab value="6">TPI</p-tab>
-              <p-tab value="7">Elevation Profile</p-tab>
-              <p-tab value="8">Elevation At Point</p-tab>
+              <p-tab value="7">Countour</p-tab>
+              <p-tab value="8">Elevation Profile</p-tab>
+              <p-tab value="9">Elevation At Point</p-tab>
             </p-tablist>
             <p-tabpanels>
               <p-tabpanel value="0">
@@ -247,26 +248,203 @@
                   </div>
                 </form>
               </p-tabpanel>
-
               <p-tabpanel value="5">
-                <div class="grid">
-                  <p> Roughness</p>
-                </div>
+                <form [formGroup]="roughnessForm" (ngSubmit)="onRoughnessSubmit()" class="w-full">
+                  <div class="grid w-full">
+                    <div class="col-12">
+                      <div class="field">
+                        <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                          (onSelect)="onFileSelect($event)" chooseLabel="Choose DEM"></p-fileUpload>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="scale">scale</label>
+                        <p-select id="scale" [options]="scaleOptions" formControlName="scale" placeholder="Select scale"
+                          class="w-full">
+                        </p-select>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="zFactor">Z-Factor</label>
+                        <p-select id="zFactor" [options]="zFactorOptions" formControlName="zFactor"
+                          placeholder="Select Z-Factor" class="w-full">
+                        </p-select>
+                      </div>
+                    </div>
+
+                    <div class="col-12">
+                      <p-button label="Submit" type="submit" [disabled]="roughnessForm.invalid"></p-button>
+                    </div>
+                  </div>
+                </form>
               </p-tabpanel>
               <p-tabpanel value="6">
-                <div class="grid">
-                  <p> TPI</p>
-                </div>
+                <form [formGroup]="tpiForm" (ngSubmit)="onTpiSubmit()" class="w-full">
+                  <div class="grid w-full">
+                    <div class="col-12">
+                      <div class="field">
+                        <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                          (onSelect)="onFileSelect($event)" chooseLabel="Choose DEM"></p-fileUpload>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="scale">scale</label>
+                        <p-select id="scale" [options]="scaleOptions" formControlName="scale" placeholder="Select scale"
+                          class="w-full">
+                        </p-select>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="zFactor">Z-Factor</label>
+                        <p-select id="zFactor" [options]="zFactorOptions" formControlName="zFactor"
+                          placeholder="Select Z-Factor" class="w-full">
+                        </p-select>
+                      </div>
+                    </div>
+
+                    <div class="col-12">
+                      <p-button label="Submit" type="submit" [disabled]="tpiForm.invalid"></p-button>
+                    </div>
+                  </div>
+                </form>
               </p-tabpanel>
               <p-tabpanel value="7">
-                <div class="grid">
-                  <p> Elevation Profile</p>
-                </div>
+                <form [formGroup]="contoursForm" (ngSubmit)="onContoursSubmit()" class="w-full">
+                  <div class="grid w-full">
+                    <div class="col-12">
+                      <div class="field">
+                        <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                          (onSelect)="onFileSelect($event)" chooseLabel="Choose DEM"></p-fileUpload>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="p-field w-full">
+                        <label for="Interval">Interval</label>
+                        <input pInputText id="Interval" type="number" formControlName="Interval"
+                          placeholder="Enter Interval" class="w-full">
+                      </div>
+                    </div>
+
+                    <div class="col-12">
+                      <p-button label="Submit" type="submit" [disabled]="contoursForm.invalid"></p-button>
+                    </div>
+                  </div>
+                </form>
               </p-tabpanel>
               <p-tabpanel value="8">
-                <div class="grid">
-                  <p> Elevation At Point</p>
-                </div>
+                <form [formGroup]="elevationProfileForm" (ngSubmit)="onElevationProfileSubmit()" class="w-full">
+                  <div class="grid w-full">
+
+                    <!-- DEM Upload -->
+                    <div class="col-12">
+                      <div class="field">
+                        <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                          (onSelect)="onElevationFileSelect($event)" chooseLabel="Choose DEM">
+                        </p-fileUpload>
+                      </div>
+                    </div>
+
+                    <div class="col-6">
+                      <div class="field">
+                        <label for="Latitude1">Latitude 1</label>
+                        <input pInputText id="Latitude1" type="number" formControlName="Latitude1"
+                          placeholder="Enter start latitude">
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="field">
+                        <label for="Longitude1">Longitude 1</label>
+                        <input pInputText id="Longitude1" type="number" formControlName="Longitude1"
+                          placeholder="Enter start longitude">
+                      </div>
+                    </div>
+                    <div class="col-12 mb-2">
+                      <button pButton type="button" label="Set Start Point"
+                        (click)="activatePointSelection('start')"></button>
+                    </div>
+
+                    <div class="col-6">
+                      <div class="field">
+                        <label for="Latitude2">Latitude 2</label>
+                        <input pInputText id="Latitude2" type="number" formControlName="Latitude2"
+                          placeholder="Enter end latitude">
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="field">
+                        <label for="Longitude2">Longitude 2</label>
+                        <input pInputText id="Longitude2" type="number" formControlName="Longitude2"
+                          placeholder="Enter end longitude">
+                      </div>
+                    </div>
+                    <div class="col-12 mb-2">
+                      <button pButton type="button" label="Set End Point"
+                        (click)="activatePointSelection('end')"></button>
+                    </div>
+
+
+                    <!-- Samples -->
+                    <div class="col-12">
+                      <div class="field">
+                        <label for="Samples">Samples</label>
+                        <input pInputText id="Samples" type="number" formControlName="samples" class="w-full"
+                          placeholder="Number of samples" value="50">
+                      </div>
+                    </div>
+
+                    <!-- Submit -->
+                    <div class="col-12">
+                      <p-button label="Submit" type="submit" [disabled]="elevationProfileForm.invalid"></p-button>
+                    </div>
+
+                  </div>
+                </form>
+                <canvas #elevationChart style="width: 100%; height: 400px;"></canvas>
+
+
+              </p-tabpanel>
+              <p-tabpanel value="9">
+                <form [formGroup]="elevationPointForm" (ngSubmit)="onElevationPointSubmit()" class="w-full">
+                  <div class="grid w-full">
+
+                    <!-- DEM Upload -->
+                    <div class="col-12">
+                      <div class="field">
+                        <p-fileUpload mode="basic" name="dem" accept=".tif,.tiff" customUpload="true"
+                          (onSelect)="onFileSelect($event)" chooseLabel="Choose DEM">
+                        </p-fileUpload>
+                      </div>
+                    </div>
+
+                    <!-- Latitude -->
+                    <div class="col-6">
+                      <div class="field">
+                        <label for="Latitude">Latitude</label>
+                        <input pInputText id="Latitude" type="number" formControlName="latitude" class="w-full"
+                          placeholder="Enter Latitude">
+                      </div>
+                    </div>
+
+                    <!-- Longitude -->
+                    <div class="col-6">
+                      <div class="field">
+                        <label for="Longitude">Longitude</label>
+                        <input pInputText id="Longitude" type="number" formControlName="longitude" class="w-full"
+                          placeholder="Enter Longitude">
+                      </div>
+                    </div>
+
+                    <!-- Submit -->
+                    <div class="col-12">
+                      <p-button label="Submit" type="submit" [disabled]="elevationPointForm.invalid"></p-button>
+                    </div>
+
+                  </div>
+                </form>
               </p-tabpanel>
             </p-tabpanels>
           </p-tabs>

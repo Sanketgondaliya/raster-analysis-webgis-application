@@ -22,6 +22,11 @@ export class OptionsService {
     { label: '1.5', value: 1.5 },
     { label: '2', value: 2 }
   ];
+  scaleOptions = [
+    { label: '1', value: 1 },
+    { label: '1.5', value: 1.5 },
+    { label: '2', value: 2 }
+  ];
 
   demAnalysisTypes = [
     { label: 'Elevation at Point', value: 'point' },

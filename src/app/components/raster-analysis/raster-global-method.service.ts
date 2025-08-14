@@ -119,6 +119,24 @@ export class RasterGlobalMethodService {
         if (normValue < 0.8) return [255, 255, 0];      // Yellow
         return [255, 255, 255];                         // White
 
+
+      // Roughness: smooth (blue/white) → rough (orange/red)
+      case 'roughness':
+        if (normValue < 0.2) return [230, 245, 255];  // Very smooth
+        if (normValue < 0.4) return [171, 217, 233];  // Smooth
+        if (normValue < 0.6) return [253, 174, 97];   // Moderate
+        if (normValue < 0.8) return [244, 109, 67];   // Rough
+        return [165, 0, 38];                          // Very rough
+
+
+      case 'tpi':
+        // Map 0–0.5 = valleys (blue), 0.5 = flat (tan), 0.5–1 = ridges (red)
+        if (normValue < 0.25) return [49, 54, 149];   // Deep valleys
+        if (normValue < 0.4) return [116, 173, 209]; // Low slope near valley
+        if (normValue < 0.6) return [255, 255, 191]; // Flat/mid-slope
+        if (normValue < 0.75) return [253, 174, 97];  // Low ridges
+        return [215, 48, 39];                         // High ridges
+
       default:
         gray = clamp(normValue * 255);
         return [gray, gray, gray];
@@ -169,7 +187,7 @@ export class RasterGlobalMethodService {
    */
   calculateRoughness(demFile: File, zFactor: number, scale: number): Observable<any> {
     const formData = new FormData();
-    formData.append('dem', demFile);
+    formData.append('file', demFile);
     formData.append('z_factor', zFactor.toString());
     formData.append('scale', scale.toString());
     return this.http.post(`${this.baseUrl}/roughness`, formData);
@@ -178,31 +196,48 @@ export class RasterGlobalMethodService {
   /**
    * Upload DEM and calculate TPI
    */
-  calculateTPI(demFile: File, radius: number): Observable<any> {
+  calculateTPI(demFile: File, zFactor: number, scale: number): Observable<any> {
     const formData = new FormData();
-    formData.append('dem', demFile);
-    formData.append('radius', radius.toString());
+    formData.append('file', demFile);
+    formData.append('z_factor', zFactor.toString());
+    formData.append('scale', scale.toString());
     return this.http.post(`${this.baseUrl}/tpi`, formData);
+  }
+
+
+  /**
+   * Upload DEM and calculate countours
+   */
+  calculateContours(demFile: File, interval: number): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', demFile);
+    formData.append('interval', interval.toString());
+    return this.http.post(`${this.baseUrl}/contours`, formData);
   }
 
   /**
    * Get elevation profile from points
    */
-  getElevationProfile(demFile: File, points: any[]): Observable<any> {
+  getElevationProfile(demFile: File, lat1: number, lon1: number, lat2: number, lon2: number, samples: number): Observable<any> {
     const formData = new FormData();
     formData.append('dem', demFile);
-    formData.append('points', JSON.stringify(points));
-    return this.http.post(`${this.baseUrl}/elevation-profile`, formData);
+    formData.append('Latitude1', lat1.toString());
+    formData.append('Longitude1', lon1.toString());
+    formData.append('Latitude2', lat2.toString());
+    formData.append('Longitude2', lon2.toString());
+    formData.append('samples', samples.toString());
+    return this.http.post(`${this.baseUrl}/elevation_profile`, formData);
   }
+
 
   /**
    * Get elevation at a specific point
    */
-  getElevationAtPoint(demFile: File, x: number, y: number): Observable<any> {
+  getElevationAtPoint(demFile: File, latitude: number, longitude: number): Observable<any> {
     const formData = new FormData();
-    formData.append('dem', demFile);
-    formData.append('x', x.toString());
-    formData.append('y', y.toString());
-    return this.http.post(`${this.baseUrl}/elevation-point`, formData);
+    formData.append('file', demFile);
+    formData.append('latitude', latitude.toString());
+    formData.append('longitude', longitude.toString());
+    return this.http.post(`${this.baseUrl}/elevation_point`, formData);
   }
 }
