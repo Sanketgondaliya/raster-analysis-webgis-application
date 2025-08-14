@@ -159,7 +159,7 @@ export class MapComponent implements AfterViewInit {
   // });
   this.mapService.setMap(this.map);
   this.initPopupOverlay();
-  this.setupWmsFeatureInfo();
+  //this.setupWmsFeatureInfo();
   this.mapService.addBasemap('osm');
 }
 
