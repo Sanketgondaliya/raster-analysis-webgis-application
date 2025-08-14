@@ -42,4 +42,8 @@ testem.log
 Thumbs.db
 
 
-/nodeserver/node_modules
+/nodeserver/node_modules/
+/pythonserver/uploads/
+/pythonserver/saved_tiffs/
+/pythonserver/outputs/
+/pythonserver/__pycache__/
