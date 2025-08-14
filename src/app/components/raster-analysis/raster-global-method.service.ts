@@ -1,11 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class RasterGlobalMethodService {
+  private baseUrl = environment.apiRasterUrl;
 
   applyColorRamp(value: number, ramp: string): [number, number, number] {
     const normValue = Math.max(0, Math.min(1, value));
@@ -165,7 +167,6 @@ export class RasterGlobalMethodService {
         return [gray, gray, gray];
     }
   }
-  private baseUrl = 'http://192.168.20.49:5000'; // Change to your FastAPI backend URL
 
   constructor(private http: HttpClient) { }
 
