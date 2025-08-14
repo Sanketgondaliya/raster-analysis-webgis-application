@@ -21,29 +21,34 @@
               </button>
             </p-accordion-header>
             <p-accordion-content>
-              <p class="m-0">ID: {{ item.id }}</p>
             </p-accordion-content>
           </p-accordion-panel>
         </p-accordion>
       </p-tabpanel>
     </ng-container>
     <p-tabpanel *ngIf="value === 1" [value]="1">
-      <p-accordion [multiple]="true">
-        <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
-          <p-accordion-header>{{ ds.name }}</p-accordion-header>
-          <p-accordion-content>
-            <div *ngFor="let table of ds.tables" class="flex align-items-center gap-2 ml-3 my-2">
-              <p-checkbox [binary]="true" [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
-                (onChange)="onItemClick($event,table.name, ds.name)" [inputId]="ds.name + '_' + table.name">
-              </p-checkbox>
-              <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>
-              <button pButton pRipple icon="pi pi-search" class="p-button-rounded p-button-text p-button-sm ml-2"
-                (click)="zoomToLayer(table.name, ds.name, $event)" pTooltip="Zoom to layer" tooltipPosition="top">
-              </button>
-            </div>
-          </p-accordion-content>
-        </p-accordion-panel>
-      </p-accordion>
+     <p-accordion [multiple]="true">
+  <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
+    <p-accordion-header>{{ ds.name }}</p-accordion-header>
+    <p-accordion-content>
+      <div *ngFor="let table of ds.tables" 
+           class="flex align-items-center justify-content-between ml-3 my-2 w-full">
+        
+        <div class="flex align-items-center gap-2">
+          <p-checkbox [binary]="true" [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
+            (onChange)="onItemClick($event,table.name, ds.name)" [inputId]="ds.name + '_' + table.name">
+          </p-checkbox>
+          <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>
+        </div>
+        
+        <button pButton pRipple icon="pi pi-search" class="p-button-rounded p-button-text p-button-sm"
+          (click)="zoomToLayer(table.name, ds.name, $event)" pTooltip="Zoom to layer" tooltipPosition="top">
+        </button>
+      </div>
+    </p-accordion-content>
+  </p-accordion-panel>
+</p-accordion>
+
     </p-tabpanel>
     <p-tabpanel *ngIf="value === 2" [value]="2">
       <input type="file" (change)="onFileUpload($event)" accept=".geojson,.json,.kml,.gml" class="my-2" />
@@ -100,6 +105,28 @@
           </p-accordion-header>
         </p-accordion-panel>
       </p-accordion>
+    </p-tabpanel>
+    <p-tabpanel *ngIf="value === 4" [value]="4">
+     <p-accordion [multiple]="true">
+  <p-accordion-panel *ngFor="let group of groupedRasterLayers" [value]="group.type">
+    <p-accordion-header>
+      <span class="font-bold text-primary">{{ group.type }}</span>
+    </p-accordion-header>
+    <p-accordion-content>
+      <div *ngFor="let raster of group.layers" 
+           class="flex align-items-center justify-content-between mb-2 w-full">
+        <div class="flex align-items-center">
+          <p-checkbox [binary]="true" [(ngModel)]="raster.visible" (onChange)="toggleRasterLayer(raster)"
+            [inputId]="raster.name"></p-checkbox>
+          <label [for]="raster.name" class="ml-2">{{ raster.name }}</label>
+        </div>
+        <button pButton pRipple icon="pi pi-search" class="p-button-rounded p-button-text p-button-sm"
+          (click)="zoomToRasterLayer(raster)" pTooltip="Zoom to layer" tooltipPosition="top"></button>
+      </div>
+    </p-accordion-content>
+  </p-accordion-panel>
+</p-accordion>
+
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>

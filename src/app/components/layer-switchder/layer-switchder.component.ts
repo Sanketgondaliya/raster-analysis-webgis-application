@@ -52,6 +52,16 @@ interface WmsLayerItem {
   checked: boolean;
   bbox?: any;
 }
+interface RasterLayerItem {
+  name: string;
+  visible: boolean;
+  layer: any
+  bbox?: any;
+}
+interface RasterGroup {
+  type: string; // e.g., NDVI, NDWI
+  layers: RasterLayerItem[];
+}
 
 @Component({
   selector: 'app-layer-switchder',
@@ -106,11 +116,87 @@ export class LayerSwitchderComponent {
       label: 'WMS Service',
       value: 3,
       items: []
+    },
+    {
+      label: 'Raster',
+      value: 4,
+      items: [] // If you plan to use items, otherwise you can omit this
     }
 
   ];
   uploadedFileNames: string[] = [];
-
+  groupedRasterLayers: RasterGroup[] = [
+    {
+      type: 'NDVI',
+      layers: [
+        {
+          name: 'NDVI 1',
+          visible: true,
+          layer: null,
+          bbox: {
+            minx: 75.0,
+            miny: 20.0,
+            maxx: 80.0,
+            maxy: 25.0,
+            crs: 'EPSG:4326'
+          }
+        },
+        {
+          name: 'NDVI 2',
+          visible: false,
+          layer: null,
+          bbox: {
+            minx: 78.5,
+            miny: 21.2,
+            maxx: 82.0,
+            maxy: 24.6,
+            crs: 'EPSG:4326'
+          }
+        },
+        {
+          name: 'NDVI PCMC',
+          visible: true,
+          layer: null,
+          bbox: {
+            minx: 70.0,
+            miny: 18.0,
+            maxx: 76.0,
+            maxy: 23.0,
+            crs: 'EPSG:4326'
+          }
+        }
+      ]
+    },
+    {
+      type: 'NDWI',
+      layers: [
+        {
+          name: 'NDWI 1',
+          visible: true,
+          layer: null,
+          bbox: {
+            minx: 71.0,
+            miny: 19.0,
+            maxx: 77.0,
+            maxy: 24.0,
+            crs: 'EPSG:4326'
+          }
+        },
+        {
+          name: 'NDWI Region A',
+          visible: false,
+          layer: null,
+          bbox: {
+            minx: 73.0,
+            miny: 18.0,
+            maxx: 78.0,
+            maxy: 23.0,
+            crs: 'EPSG:4326'
+          }
+        }
+      ]
+    }
+  ];
   constructor(
     private toastService: ToastService,
     private geoserverService: GeoserverService,
@@ -125,6 +211,30 @@ export class LayerSwitchderComponent {
       this.wmsWmsLayers[key].setVisible(event.checked);
     }
     layer.checked = event.checked;
+  }
+  toggleRasterLayer(raster: RasterLayerItem): void {
+    raster.layer.setVisible(raster.visible);
+  }
+
+  zoomToRasterLayer(raster: RasterLayerItem): void {
+    if (!raster.bbox) {
+      this.toastService.showInfo('No extent information for this raster layer');
+      return;
+    }
+
+    const extent = [raster.bbox.minx, raster.bbox.miny, raster.bbox.maxx, raster.bbox.maxy];
+    const sourceCRS = raster.bbox.crs || 'EPSG:4326';
+
+    try {
+      const transformedExtent = transformExtent(extent, sourceCRS, 'EPSG:3857');
+      this.map.getView().fit(transformedExtent, {
+        duration: 1000,
+        padding: [50, 50, 50, 50]
+      });
+    } catch (error) {
+      console.error('Error transforming extent:', error);
+      this.toastService.showError('Failed to zoom to raster layer');
+    }
   }
 
   ngOnInit(): void {
@@ -143,10 +253,10 @@ export class LayerSwitchderComponent {
       this.checkedTables = JSON.parse(storedTables);
     }
   }
-  newGeoserverUrl: string = '';
-  newWorkspace: string = '';
+  newGeoserverUrl: string = 'https://vedas.sac.gov.in/geoserver';
+  newWorkspace: string = 'vedas_gis';
   newDatastore: string = '';
-  newLayerName: string = '';
+  newLayerName: string = 'india_state_boundary_07032025';
   newStyle: string = '';
 
   addWmsLayer(): void {
