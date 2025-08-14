@@ -5,49 +5,40 @@
     </p-tab>
   </p-tablist>
   <p-tabpanels>
-    <ng-container *ngFor="let tab of tabs">
-      <p-tabpanel *ngIf="tab.label !== 'Operational'" [value]="tab.value">
-        <p-accordion [multiple]="true">
-          <p-accordion-panel *ngFor="let item of tab.items" [value]="item.id">
-            <p-accordion-header>
-              <p-radioButton *ngIf="tab.label === 'Basemap'" name="basemapGroup" [value]="item.name"
-                [(ngModel)]="selectedBasemap" (ngModelChange)="onBasemapChange($event)"
-                (click)="$event.stopPropagation()" [inputId]="item.id">
-              </p-radioButton>
-              <label [for]="item.id" class="ml-2">{{ item.name }}</label>
-              <button *ngIf="tab.label === 'Temporal'" pButton pRipple icon="pi pi-search"
-                class="p-button-rounded p-button-text p-button-sm ml-2"
-                (click)="zoomToLayer(item.name, tab.label, $event)" pTooltip="Zoom to layer" tooltipPosition="top">
-              </button>
-            </p-accordion-header>
-            <p-accordion-content>
-            </p-accordion-content>
-          </p-accordion-panel>
-        </p-accordion>
-      </p-tabpanel>
-    </ng-container>
+    <p-tabpanel *ngIf="value === 0" [value]="0">
+      <p-accordion [multiple]="true">
+        <p-accordion-panel *ngFor="let item of tabs[0].items" [value]="item.id">
+          <p-accordion-header>
+            <p-radioButton name="basemapGroup" [value]="item.name" [(ngModel)]="selectedBasemap"
+              (ngModelChange)="onBasemapChange($event)" (click)="$event.stopPropagation()" [inputId]="item.id">
+            </p-radioButton>
+            <label [for]="item.id" class="ml-2">{{ item.name }}</label>
+          </p-accordion-header>
+        </p-accordion-panel>
+      </p-accordion>
+    </p-tabpanel>
     <p-tabpanel *ngIf="value === 1" [value]="1">
-     <p-accordion [multiple]="true">
-  <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
-    <p-accordion-header>{{ ds.name }}</p-accordion-header>
-    <p-accordion-content>
-      <div *ngFor="let table of ds.tables" 
-           class="flex align-items-center justify-content-between ml-3 my-2 w-full">
-        
-        <div class="flex align-items-center gap-2">
-          <p-checkbox [binary]="true" [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
-            (onChange)="onItemClick($event,table.name, ds.name)" [inputId]="ds.name + '_' + table.name">
-          </p-checkbox>
-          <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>
-        </div>
-        
-        <button pButton pRipple icon="pi pi-search" class="p-button-rounded p-button-text p-button-sm"
-          (click)="zoomToLayer(table.name, ds.name, $event)" pTooltip="Zoom to layer" tooltipPosition="top">
-        </button>
-      </div>
-    </p-accordion-content>
-  </p-accordion-panel>
-</p-accordion>
+      <p-accordion [multiple]="true">
+        <p-accordion-panel *ngFor="let ds of datastorelist" [value]="ds.name">
+          <p-accordion-header>{{ ds.name }}</p-accordion-header>
+          <p-accordion-content>
+            <div *ngFor="let table of ds.tables"
+              class="flex align-items-center justify-content-between ml-3 my-2 w-full">
+
+              <div class="flex align-items-center gap-2">
+                <p-checkbox [binary]="true" [(ngModel)]="checkedTables[ds.name + '.' + table.name].checked"
+                  (onChange)="onItemClick($event,table.name, ds.name)" [inputId]="ds.name + '_' + table.name">
+                </p-checkbox>
+                <label [for]="ds.name + '_' + table.name">{{ table.name }}</label>
+              </div>
+
+              <button pButton pRipple icon="pi pi-search" class="p-button-rounded p-button-text p-button-sm"
+                (click)="zoomToLayer(table.name, ds.name, $event)" pTooltip="Zoom to layer" tooltipPosition="top">
+              </button>
+            </div>
+          </p-accordion-content>
+        </p-accordion-panel>
+      </p-accordion>
 
     </p-tabpanel>
     <p-tabpanel *ngIf="value === 2" [value]="2">
@@ -107,25 +98,25 @@
       </p-accordion>
     </p-tabpanel>
     <p-tabpanel *ngIf="value === 4" [value]="4">
-     <p-accordion [multiple]="true">
-  <p-accordion-panel *ngFor="let group of groupedRasterLayers" [value]="group.type">
-    <p-accordion-header>
-      <span class="font-bold text-primary">{{ group.type }}</span>
-    </p-accordion-header>
-    <p-accordion-content>
-      <div *ngFor="let raster of group.layers" 
-           class="flex align-items-center justify-content-between mb-2 w-full">
-        <div class="flex align-items-center">
-          <p-checkbox [binary]="true" [(ngModel)]="raster.visible" (onChange)="toggleRasterLayer(raster)"
-            [inputId]="raster.name"></p-checkbox>
-          <label [for]="raster.name" class="ml-2">{{ raster.name }}</label>
-        </div>
-        <button pButton pRipple icon="pi pi-search" class="p-button-rounded p-button-text p-button-sm"
-          (click)="zoomToRasterLayer(raster)" pTooltip="Zoom to layer" tooltipPosition="top"></button>
-      </div>
-    </p-accordion-content>
-  </p-accordion-panel>
-</p-accordion>
+      <p-accordion [multiple]="true">
+        <p-accordion-panel *ngFor="let group of groupedRasterLayers" [value]="group.type">
+          <p-accordion-header>
+            <span class="font-bold text-primary">{{ group.type }}</span>
+          </p-accordion-header>
+          <p-accordion-content>
+            <div *ngFor="let raster of group.layers"
+              class="flex align-items-center justify-content-between mb-2 w-full">
+              <div class="flex align-items-center">
+                <p-checkbox [binary]="true" [(ngModel)]="raster.visible" (onChange)="toggleRasterLayer(raster)"
+                  [inputId]="raster.name"></p-checkbox>
+                <label [for]="raster.name" class="ml-2">{{ raster.name }}</label>
+              </div>
+              <button pButton pRipple icon="pi pi-search" class="p-button-rounded p-button-text p-button-sm"
+                (click)="zoomToRasterLayer(raster)" pTooltip="Zoom to layer" tooltipPosition="top"></button>
+            </div>
+          </p-accordion-content>
+        </p-accordion-panel>
+      </p-accordion>
 
     </p-tabpanel>
   </p-tabpanels>
