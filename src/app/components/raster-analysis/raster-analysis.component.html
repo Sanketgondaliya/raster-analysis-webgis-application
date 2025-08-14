@@ -463,7 +463,63 @@
       </p-tabpanel>
       <!-- SATELLITE TAB -->
       <p-tabpanel value="1">
-        <p class="m-0">Satellite</p>
+        <p-tabs value="0">
+          <p-tablist>
+            <p-tab value="0">NDVI</p-tab>
+            <p-tab value="1">NDBI</p-tab>
+            <p-tab value="2">NDWI</p-tab>
+          </p-tablist>
+          <p-tabpanels>
+            <p-tabpanel value="0">
+              <div class="p-mb-3">
+                <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
+              </div>
+              <div class="p-grid p-align-center p-mb-3">
+                <div class="p-col-6">
+                  <label for="ndviStart">Start Date:</label>
+                  <p-datepicker [(ngModel)]="ndviStartDate" />
+                </div>
+                <div class="p-col-6">
+                  <label for="ndviEnd">End Date:</label>
+                  <p-datepicker [(ngModel)]="ndviEndDate" />
+                </div>
+              </div>
+              <p-button label="Submit" icon="pi pi-check" (onClick)="submitData('ndvi')"></p-button>
+            </p-tabpanel>
+            <p-tabpanel value="1">
+              <div class="p-mb-3">
+                <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
+              </div>
+              <div class="p-grid p-align-center p-mb-3">
+                <div class="p-col-6">
+                  <label for="ndbiStart">Start Date:</label>
+                  <p-datepicker [(ngModel)]="ndbiStartDate" />
+                </div>
+                <div class="p-col-6">
+                  <label for="ndbiEnd">End Date:</label>
+                  <p-datepicker [(ngModel)]="ndbiEndDate" />
+                </div>
+              </div>
+              <p-button label="Submit" icon="pi pi-check" (onClick)="submitData('ndbi')"></p-button>
+            </p-tabpanel>
+            <p-tabpanel value="2">
+              <div class="p-mb-3">
+                <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
+              </div>
+              <div class="p-grid p-align-center p-mb-3">
+                <div class="p-col-6">
+                  <label for="ndwiStart">Start Date:</label>
+                  <p-datepicker [(ngModel)]="ndwiStartDate" />
+                </div>
+                <div class="p-col-6">
+                  <label for="ndwiEnd">End Date:</label>
+                  <p-datepicker [(ngModel)]="ndwiEndDate" />
+                </div>
+              </div>
+              <p-button label="Submit" icon="pi pi-check" (onClick)="submitData('ndwi')"></p-button>
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
       </p-tabpanel>
     </p-tabpanels>
   </p-tabs>

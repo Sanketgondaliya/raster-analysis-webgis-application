@@ -25,8 +25,31 @@ export class RasterGlobalMethodService {
         if (normValue < 0.8) return [130, 80, 40];      // High mountains
         if (normValue < 0.9) return [100, 60, 30];      // Higher mountains
         return [255, 255, 255];
+      case 'ndvi':
+        // Vegetation index: brown → yellow → green
+        if (normValue < 0.2) return [165, 0, 38];       // Red - barren
+        if (normValue < 0.4) return [215, 48, 39];      // Light red
+        if (normValue < 0.5) return [244, 109, 67];     // Orange
+        if (normValue < 0.6) return [253, 174, 97];     // Light orange
+        if (normValue < 0.7) return [254, 224, 139];    // Yellow
+        if (normValue < 0.8) return [217, 239, 139];    // Light green
+        if (normValue < 0.9) return [166, 217, 106];    // Medium green
+        return [102, 189, 99];                          // Dark green
+      case 'ndbi':
+        // Built-up index: brown → gray → white
+        if (normValue < 0.2) return [84, 48, 5];        // Dark brown
+        if (normValue < 0.4) return [140, 81, 10];      // Brown
+        if (normValue < 0.6) return [191, 129, 45];     // Light brown
+        if (normValue < 0.8) return [224, 224, 224];    // Light gray
+        return [255, 255, 255];                         // White
+      case 'ndwi':
+        // Water index: brown → light blue → blue
+        if (normValue < 0.2) return [165, 42, 42];      // Brown - dry
+        if (normValue < 0.4) return [191, 239, 255];    // Light blue
+        if (normValue < 0.6) return [125, 197, 255];    // Medium blue
+        if (normValue < 0.8) return [49, 130, 189];     // Blue
+        return [0, 77, 168];                            // Dark blue - water
 
-      // Hillshade: simple dark→bright grayscale
       case 'hillshade':
         gray = clamp(normValue * 255);
         return [gray, gray, gray];
@@ -239,5 +262,20 @@ export class RasterGlobalMethodService {
     formData.append('latitude', latitude.toString());
     formData.append('longitude', longitude.toString());
     return this.http.post(`${this.baseUrl}/elevation_point`, formData);
+  }
+
+  /**
+  * Fetch raster index from backend
+  * @param service NDVI | NDBI | NDWI
+  * @param bbox string bbox "minLon,minLat,maxLon,maxLat"
+  * @param startDate Date
+  * @param endDate Date
+  */
+  fetchIndex(service: 'ndvi' | 'ndbi' | 'ndwi', bbox: string, startDate: Date, endDate: Date): Observable<Blob> {
+    const time_start = startDate.toISOString().split('T')[0];
+    const time_end = endDate.toISOString().split('T')[0];
+    const url = `${this.baseUrl}/landsat_indices?service=${service}&bbox=${bbox}&time_start=${time_start}&time_end=${time_end}`;
+
+    return this.http.get(url, { responseType: 'blob' });
   }
 }

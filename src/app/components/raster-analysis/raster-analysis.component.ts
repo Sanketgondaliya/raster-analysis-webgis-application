@@ -29,6 +29,8 @@ import Feature from 'ol/Feature';
 import { InputTextModule } from 'primeng/inputtext';
 import { OptionsService } from './options.service';
 import { RasterGlobalMethodService } from './raster-global-method.service';
+import { DatePicker } from 'primeng/datepicker';
+
 interface Extent {
   west: number | null;
   east: number | null;
@@ -48,7 +50,7 @@ import { GeoJSON } from 'ol/format';
 @Component({
   selector: 'app-raster-analysis',
   standalone: true,
-  imports: [CommonModule, FormsModule, TabsModule, ReactiveFormsModule, Select, FileUploadModule, InputNumberModule, InputTextModule, ButtonModule],
+  imports: [CommonModule, FormsModule, TabsModule, DatePicker, ReactiveFormsModule, Select, FileUploadModule, InputNumberModule, InputTextModule, ButtonModule],
   templateUrl: './raster-analysis.component.html',
   styleUrls: ['./raster-analysis.component.scss'],
 })
@@ -76,6 +78,50 @@ export class RasterAnalysisComponent implements OnInit {
   colorRamps: any = [];
   selectedDemType: string = 'SRTMGL1';
   selectedColorRamp: string = 'grayscale';
+  ndviStartDate: Date | undefined;
+  ndviEndDate: Date | undefined;
+  ndbiStartDate: Date | undefined;
+  ndbiEndDate: Date | undefined;
+  ndwiStartDate: Date | undefined;
+  ndwiEndDate: Date | undefined;
+  bbox: any;
+
+  submitData(service: 'ndvi' | 'ndbi' | 'ndwi') {
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+
+    switch (service) {
+      case 'ndvi':
+        startDate = this.ndviStartDate;
+        endDate = this.ndviEndDate;
+        break;
+      case 'ndbi':
+        startDate = this.ndbiStartDate;
+        endDate = this.ndbiEndDate;
+        break;
+      case 'ndwi':
+        startDate = this.ndwiStartDate;
+        endDate = this.ndwiEndDate;
+        break;
+    }
+
+    if (!startDate || !endDate) {
+      alert('Please select start and end dates!');
+      return;
+    }
+    this.rasterGlobalMethodService.fetchIndex(service, this.bbox.toString(), startDate, endDate)
+      .subscribe({
+        next: (blob) => {
+        this.visualizeTiff(blob, service);  
+
+        },
+        error: (err) => {
+          console.error('Failed to fetch raster:', err);
+          alert('Failed to fetch raster. Check console.');
+        }
+      });
+  }
+
   extent: Extent = {
     west: null,
     east: null,
@@ -91,7 +137,6 @@ export class RasterAnalysisComponent implements OnInit {
   vectorSource = new VectorSource();
   vectorLayer!: VectorLayer;
 
-  bbox: number[] | null = null;
   _extent: any;
 
   constructor(
@@ -107,12 +152,12 @@ export class RasterAnalysisComponent implements OnInit {
     this.slopeForm = this.fb.group({
       slopeType: [null],      // optional
       zFactor: [null],        // optional
-      demFile: [null, Validators.required] // only this is required
+      demFile: [null] // only this is required
     });
     this.aspectForm = this.fb.group({
       outputformat: [null],      // optional
       FlatAreasHandling: [null],        // optional
-      demFile: [null, Validators.required] // only this is required
+      demFile: [null] // only this is required
     });
     this.hillshadeForm = this.fb.group({
       demFile: [null],
