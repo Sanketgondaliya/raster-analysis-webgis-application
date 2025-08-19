@@ -85,6 +85,30 @@ export class RasterAnalysisComponent implements OnInit {
   ndwiStartDate: Date | undefined;
   ndwiEndDate: Date | undefined;
   bbox: any;
+  // In your component or service class
+  lstStartDate: Date = new Date('2024-01-01');
+  lstEndDate: Date = new Date('2025-01-01');
+
+  lstLegend = [
+    { label: 'Very Cold (<0.2)', color: 'rgb(49, 54, 149)' },
+    { label: 'Cold (0.2–0.4)', color: 'rgb(69, 117, 180)' },
+    { label: 'Mild (0.4–0.6)', color: 'rgb(120, 198, 121)' },
+    { label: 'Hot (0.6–0.8)', color: 'rgb(253, 174, 97)' },
+    { label: 'Extreme (>0.8)', color: 'rgb(215, 25, 28)' }
+  ];
+  lulcLegend = [
+    { label: 'Tree cover', color: '#006400' },
+    { label: 'Shrubland', color: '#ffbb22' },
+    { label: 'Grassland', color: '#ffff4c' },
+    { label: 'Cropland', color: '#f096ff' },
+    { label: 'Built-up', color: '#fa0000' },
+    { label: 'Bare / sparse vegetation', color: '#b4b4b4' },
+    { label: 'Snow and ice', color: '#f0f0f0' },
+    { label: 'Permanent water bodies', color: '#0064c8' },
+    { label: 'Herbaceous wetland', color: '#0096a0' },
+    { label: 'Mangroves', color: '#00cf75' },
+    { label: 'Moss and lichen', color: '#fae6a0' }
+  ];
 
   submitData(service: 'ndvi' | 'ndbi' | 'ndwi') {
     let startDate: Date | undefined;
@@ -112,7 +136,7 @@ export class RasterAnalysisComponent implements OnInit {
     this.rasterGlobalMethodService.fetchIndex(service, this.bbox.toString(), startDate, endDate)
       .subscribe({
         next: (blob) => {
-        this.visualizeTiff(blob, service);  
+          this.visualizeTiff(blob, service);
 
         },
         error: (err) => {
@@ -121,6 +145,39 @@ export class RasterAnalysisComponent implements OnInit {
         }
       });
   }
+
+  submitLST() {
+    if (!this.lstStartDate || !this.lstEndDate) {
+      alert('⚠️ Please select start and end dates for LST!');
+      return;
+    }
+
+    this.rasterGlobalMethodService.fetchLST(this.bbox, this.lstStartDate, this.lstEndDate)
+      .subscribe({
+        next: (blob) => {
+          this.visualizeTiff(blob, 'lst');
+          alert('✅ LST raster loaded successfully!');
+        },
+        error: (err) => {
+          console.error('Failed to fetch LST raster:', err);
+          alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
+        }
+      });
+  }
+  submitLULC() {
+    this.rasterGlobalMethodService.fetchLULC(this.bbox)
+      .subscribe({
+        next: (blob) => {
+          this.visualizeTiffLulc(blob, 'lulc');
+          alert('✅ LST raster loaded successfully!');
+        },
+        error: (err) => {
+          console.error('Failed to fetch LST raster:', err);
+          alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
+        }
+      });
+  }
+
 
   extent: Extent = {
     west: null,
@@ -928,4 +985,114 @@ export class RasterAnalysisComponent implements OnInit {
       throw error;
     }
   }
+  private async visualizeTiffLulc(input: File | Blob, style: string): Promise<void> {
+  try {
+    const layerNm = 'demLayer';
+
+    // Remove old layer if it exists
+    this.map.getLayers().getArray()
+      .filter(layer => layer.get('name') === layerNm)
+      .forEach(layer => this.map.removeLayer(layer));
+
+    // Read GeoTIFF
+    const arrayBuffer = await input.arrayBuffer();
+    const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
+    const image = await tiff.getImage();
+    const width = image.getWidth();
+    const height = image.getHeight();
+    const extent4326 = image.getBoundingBox();
+    const extent3857 = transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
+
+    // Raster values
+    const rasterData = await image.readRasters();
+    const values = rasterData[0];
+
+    // Prepare min/max for continuous styles
+    let min = Infinity;
+    let max = -Infinity;
+    if (style !== 'lulc' && typeof values !== 'number') {
+      for (let i = 0; i < values.length; i++) {
+        const val = values[i];
+        if (val < min) min = val;
+        if (val > max) max = val;
+      }
+    } else if (typeof values === 'number') {
+      min = max = values;
+    }
+
+    // Prepare canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    const imageData = ctx.createImageData(width, height);
+
+    if (typeof values === 'number') {
+      // Constant raster
+      const color = style === 'lulc'
+        ? this.rasterGlobalMethodService.applyLULCColor(values)
+        : this.rasterGlobalMethodService.applyColorRamp(
+            (values - min) / (max - min || 1),
+            style
+          );
+
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        imageData.data[i] = color[0];
+        imageData.data[i + 1] = color[1];
+        imageData.data[i + 2] = color[2];
+        imageData.data[i + 3] = 255;
+      }
+    } else {
+      // Typed array
+      const length = Math.min(values.length, width * height);
+
+      if (style === 'lulc') {
+        // Categorical coloring
+        for (let i = 0; i < length; i++) {
+          const [r, g, b] = this.rasterGlobalMethodService.applyLULCColor(values[i]);
+          const idx = i * 4;
+          imageData.data[idx] = r;
+          imageData.data[idx + 1] = g;
+          imageData.data[idx + 2] = b;
+          imageData.data[idx + 3] = 255;
+        }
+      } else {
+        // Continuous coloring
+        for (let i = 0; i < length; i++) {
+          const norm = (values[i] - min) / (max - min || 1);
+          const [r, g, b] = this.rasterGlobalMethodService.applyColorRamp(norm, style);
+          const idx = i * 4;
+          imageData.data[idx] = r;
+          imageData.data[idx + 1] = g;
+          imageData.data[idx + 2] = b;
+          imageData.data[idx + 3] = 255;
+        }
+      }
+    }
+
+    // Render to canvas
+    ctx.putImageData(imageData, 0, 0);
+
+    // Add OpenLayers image layer
+    const imageLayer = new ImageLayer({
+      zIndex: 9999,
+      className: layerNm,
+      source: new Static({
+        url: canvas.toDataURL(),
+        imageExtent: extent3857,
+        projection: 'EPSG:3857'
+      }),
+      opacity: 0.7,
+      properties: {
+        name: layerNm
+      }
+    });
+
+    this.map.addLayer(imageLayer);
+    this.map.getView().fit(extent3857, { padding: [50, 50, 50, 50] });
+  } catch (error) {
+    console.error('Error visualizing raster:', error);
+    throw error;
+  }
+}
 }

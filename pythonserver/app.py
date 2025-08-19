@@ -1,3 +1,4 @@
+import traceback
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException ,Query
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,9 @@ import numpy as np
 import rasterio 
 from rasterio.transform import from_bounds
 import tempfile
+
+import ee
+from pydantic import BaseModel, Field
 
 import EVALSCRIPTS
 
@@ -523,7 +527,89 @@ async def get_index(
 
     return FileResponse(tmp_file.name, media_type="image/tiff", filename=f"{service}.tiff")
 
+downloader = LSTDataDownloader()
+# --- Request model ---
+class LSTRequest(BaseModel):
+    time_start: str = Field(..., description="Start date in YYYY-MM-DD")
+    time_end: str = Field(..., description="End date in YYYY-MM-DD")
+    bbox: list[float] = Field(..., description="[minx,miny,maxx,maxy]")
 
-if __name__ == '__main__':
+
+@app.post("/download_lst")
+def download_lst(request: LSTRequest):
+    """
+    Download Land Surface Temperature (LST) for a bounding box and date range.
+    Returns the TIFF file directly.
+    """
+    try:
+        if not isinstance(request.bbox, list) or len(request.bbox) != 4:
+            raise ValueError("bbox must be [minx,miny,maxx,maxy]")
+
+        coords = [float(c) for c in request.bbox]
+
+        # Build Earth Engine geometry
+        region = ee.Geometry.Rectangle(coords)
+
+        # Call downloader → should return dict with "filename"
+        result = downloader.download_lst_data(
+            start_date=request.time_start,
+            end_date=request.time_end,
+            region=region,
+            scale=100
+        )
+
+        if not isinstance(result, dict) or "filename" not in result:
+            raise ValueError("Downloader did not return a valid filename")
+
+        tiff_path = result["filename"]
+
+        return FileResponse(
+            path=tiff_path,
+            filename=os.path.basename(tiff_path),
+            media_type="image/tiff",
+        )
+
+    except Exception as e:
+        print("DEBUG ERROR:\n", traceback.format_exc())
+        raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
+
+
+lulc_downloader = LULCDataDownloader()
+
+# --- Request model for LULC ---
+class LULCRequest(BaseModel):
+    bbox: list[float] = Field(..., description="[minx,miny,maxx,maxy]"),
+    scale: int = 100
+
+@app.post("/download_lulc")
+def download_lulc(request: LULCRequest):
+    """
+    Download Land Use Land Cover (LULC) data for a bounding box.
+    Returns the TIFF file directly.
+    """
+    try:
+        if not isinstance(request.bbox, list) or len(request.bbox) != 4:
+            raise ValueError("bbox must be [minx,miny,maxx,maxy]")
+
+        coords = [float(c) for c in request.bbox]
+        region = ee.Geometry.Rectangle(coords)
+
+        # Call single download
+        tiff_path = lulc_downloader.download_lulc_single(
+            region=region,
+            scale=request.scale
+        )
+
+        return FileResponse(
+            path=tiff_path,
+            filename=os.path.basename(tiff_path),
+            media_type="image/tiff",
+        )
+
+    except Exception as e:
+        print("DEBUG ERROR:\n", traceback.format_exc())
+        raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
+
+if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    uvicorn.run("app:app", host="0.0.0.0", port=5000, reload=True)

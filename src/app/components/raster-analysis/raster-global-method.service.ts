@@ -51,11 +51,9 @@ export class RasterGlobalMethodService {
         if (normValue < 0.6) return [125, 197, 255];    // Medium blue
         if (normValue < 0.8) return [49, 130, 189];     // Blue
         return [0, 77, 168];                            // Dark blue - water
-
       case 'hillshade':
         gray = clamp(normValue * 255);
         return [gray, gray, gray];
-
       // Aspect: value expected to be normalized from 0–1 (where 0=0°, 1=360°)
       // Uses HSV to RGB conversion for smooth circular coloring
       case 'aspect':
@@ -161,12 +159,52 @@ export class RasterGlobalMethodService {
         if (normValue < 0.6) return [255, 255, 191]; // Flat/mid-slope
         if (normValue < 0.75) return [253, 174, 97];  // Low ridges
         return [215, 48, 39];                         // High ridges
+      case 'lst':
+        // Normalize LST to 0–1 range before using normValue
+        // Example thresholds: cold (<0.2), mild (0.2–0.4), warm (0.4–0.6), hot (0.6–0.8), extreme (>0.8)
+        if (normValue < 0.2) return [49, 54, 149];     // Dark blue (very cold)
+        if (normValue < 0.4) return [69, 117, 180];    // Light blue
+        if (normValue < 0.6) return [120, 198, 121];   // Green (moderate)
+        if (normValue < 0.8) return [253, 174, 97];    // Orange (hot)
+        return [215, 25, 28];                        // Red (extremely hot)
+      case 'lulc':  // categorical mapping (no normalization!)
+      debugger
+        switch (value) {
+          case 10: return [0, 100, 0];       // Tree cover
+          case 20: return [255, 187, 34];    // Shrubland
+          case 30: return [255, 255, 76];    // Grassland
+          case 40: return [240, 150, 255];   // Cropland
+          case 50: return [250, 0, 0];       // Built-up
+          case 60: return [180, 180, 180];   // Bare land
+          case 70: return [240, 240, 240];   // Snow/Ice
+          case 80: return [0, 100, 200];     // Water
+          case 90: return [0, 150, 160];     // Wetland
+          case 95: return [0, 207, 117];     // Mangroves
+          case 100: return [250, 230, 160];  // Moss/lichen
+          default: return [200, 200, 200];   // Unknown
+        }
 
       default:
         gray = clamp(normValue * 255);
         return [gray, gray, gray];
     }
   }
+applyLULCColor(value: number): [number, number, number] {
+  switch (value) {
+    case 10: return [0, 100, 0];       // Tree cover
+    case 20: return [255, 187, 34];    // Shrubland
+    case 30: return [255, 255, 76];    // Grassland
+    case 40: return [240, 150, 255];   // Cropland
+    case 50: return [250, 0, 0];       // Built-up
+    case 60: return [180, 180, 180];   // Bare / sparse vegetation
+    case 70: return [240, 240, 240];   // Snow and ice
+    case 80: return [0, 100, 200];     // Permanent water bodies
+    case 90: return [0, 150, 160];     // Herbaceous wetland
+    case 95: return [0, 207, 117];     // Mangroves
+    case 100: return [250, 230, 160];  // Moss and lichen
+    default: return [200, 200, 200];   // fallback
+  }
+}
 
   constructor(private http: HttpClient) { }
 
@@ -278,5 +316,28 @@ export class RasterGlobalMethodService {
     const url = `${this.baseUrl}/landsat_indices?service=${service}&bbox=${bbox}&time_start=${time_start}&time_end=${time_end}`;
 
     return this.http.get(url, { responseType: 'blob' });
+  }
+
+  /**
+   * Fetch LST index from backend
+   * @param bbox string bbox "minLon,minLat,maxLon,maxLat"
+   * @param startDate Date
+   * @param endDate Date
+   */
+  fetchLST(bbox: number[], startDate: Date, endDate: Date): Observable<Blob> {
+    const payload = {
+      time_start: startDate.toISOString().split('T')[0],
+      time_end: endDate.toISOString().split('T')[0],
+      bbox: bbox
+    };
+    const url = `${this.baseUrl}/download_lst`;
+    return this.http.post(url, payload, { responseType: 'blob' });
+  }
+  fetchLULC(bbox: number[]): Observable<Blob> {
+    const payload = {
+      bbox: bbox
+    };
+    const url = `${this.baseUrl}/download_lulc`;
+    return this.http.post(url, payload, { responseType: 'blob' });
   }
 }

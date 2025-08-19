@@ -468,6 +468,9 @@
             <p-tab value="0">NDVI</p-tab>
             <p-tab value="1">NDBI</p-tab>
             <p-tab value="2">NDWI</p-tab>
+            <p-tab value='3'>LST</p-tab>
+            <p-tab value='4'>LULC</p-tab>
+
           </p-tablist>
           <p-tabpanels>
             <p-tabpanel value="0">
@@ -517,6 +520,47 @@
                 </div>
               </div>
               <p-button label="Submit" icon="pi pi-check" (onClick)="submitData('ndwi')"></p-button>
+            </p-tabpanel>
+            <p-tabpanel value="3">
+              <div class="p-mb-3">
+                <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
+              </div>
+              <div class="p-grid p-align-center p-mb-3">
+                <div class="p-col-6">
+                  <label for="lstStart">Start Date:</label>
+                  <p-datepicker [(ngModel)]="lstStartDate" />
+                </div>
+                <div class="p-col-6">
+                  <label for="lstEnd">End Date:</label>
+                  <p-datepicker [(ngModel)]="lstEndDate" />
+                </div>
+              </div>
+              <p-button label="Submit" icon="pi pi-check" (onClick)="submitLST()"></p-button>
+              <div class="p-mt-3">
+                <h4>LST Legend (°C)</h4>
+                <div class="legend">
+                  <div class="legend-item" *ngFor="let item of lstLegend">
+                    <span class="legend-color" [ngStyle]="{'background-color': item.color}"></span>
+                    <span>{{item.label}}</span>
+                  </div>
+                </div>
+              </div>
+
+            </p-tabpanel>
+            <p-tabpanel value="4">
+              <div class="p-mb-3">
+                <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
+              </div>
+                 <div class="p-mt-3">
+                <h4>LST Legend (°C)</h4>
+                <div class="legend">
+                  <div class="legend-item" *ngFor="let item of lulcLegend">
+                    <span class="legend-color" [ngStyle]="{'background-color': item.color}"></span>
+                    <span>{{item.label}}</span>
+                  </div>
+                </div>
+              </div>
+              <p-button label="Submit" icon="pi pi-check" (onClick)="submitLULC()"></p-button>
             </p-tabpanel>
           </p-tabpanels>
         </p-tabs>

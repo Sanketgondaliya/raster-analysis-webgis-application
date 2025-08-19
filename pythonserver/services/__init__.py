@@ -9,6 +9,8 @@ from .TPI import tpi_service
 from .indices import ndvi_service,ndwi_service,ndbi_service
 from .elevation_profile import elevation_profile_service
 from .elevation_point import elevation_point_service
+from .lst import LSTDataDownloader
+from .lulc import LULCDataDownloader
 
 __all__ = [
     'generate_contours',
@@ -23,5 +25,7 @@ __all__ = [
     'ndwi_service',
     'ndbi_service',
     'elevation_profile_service',
-    'elevation_point_service'
+    'elevation_point_service',
+    'LSTDataDownloader',
+    'LULCDataDownloader'
 ]
