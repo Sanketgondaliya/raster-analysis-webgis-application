@@ -47,3 +47,5 @@ Thumbs.db
 /pythonserver/saved_tiffs/
 /pythonserver/outputs/
 /pythonserver/__pycache__/
+/pythonserver/LST_data/
+/pythonserver/LULC_data/
