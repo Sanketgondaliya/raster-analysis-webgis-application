@@ -6,6 +6,7 @@ from services import *
 import os
 import base64
 from fastapi.responses import JSONResponse
+from typing import List, Dict, Tuple
 
 from sentinelhub import SHConfig, SentinelHubRequest, MimeType, DataCollection, BBox, CRS
 import numpy as np
@@ -532,7 +533,7 @@ downloader = LSTDataDownloader()
 class LSTRequest(BaseModel):
     time_start: str = Field(..., description="Start date in YYYY-MM-DD")
     time_end: str = Field(..., description="End date in YYYY-MM-DD")
-    bbox: list[float] = Field(..., description="[minx,miny,maxx,maxy]")
+    bbox: List[float] = Field(..., description="[minx,miny,maxx,maxy]")
 
 
 @app.post("/download_lst")
@@ -578,7 +579,7 @@ lulc_downloader = LULCDataDownloader()
 
 # --- Request model for LULC ---
 class LULCRequest(BaseModel):
-    bbox: list[float] = Field(..., description="[minx,miny,maxx,maxy]"),
+    bbox: List[float] = Field(..., description="[minx,miny,maxx,maxy]")
     scale: int = 100
 
 @app.post("/download_lulc")
