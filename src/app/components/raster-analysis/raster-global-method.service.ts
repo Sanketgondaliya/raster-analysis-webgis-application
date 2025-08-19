@@ -95,17 +95,6 @@ export class RasterGlobalMethodService {
         if (normValue < 0.9) return [115, 89, 38];      // High mountains
         return [179, 179, 179];                         // Snow
 
-      // NDVI (Vegetation index)
-      case 'ndvi':
-        if (normValue < 0.2) return [165, 0, 38];       // Red - No vegetation
-        if (normValue < 0.4) return [215, 48, 39];      // Light red
-        if (normValue < 0.5) return [244, 109, 67];     // Orange
-        if (normValue < 0.6) return [253, 174, 97];     // Light orange
-        if (normValue < 0.7) return [254, 224, 139];    // Yellow
-        if (normValue < 0.8) return [217, 239, 139];    // Light green
-        if (normValue < 0.9) return [166, 217, 106];    // Medium green
-        return [102, 189, 99];                          // Dark green - Dense vegetation
-
       // Viridis (perceptually uniform)
       case 'viridis':
         return [
@@ -167,23 +156,6 @@ export class RasterGlobalMethodService {
         if (normValue < 0.6) return [120, 198, 121];   // Green (moderate)
         if (normValue < 0.8) return [253, 174, 97];    // Orange (hot)
         return [215, 25, 28];                        // Red (extremely hot)
-      case 'lulc':  // categorical mapping (no normalization!)
-      debugger
-        switch (value) {
-          case 10: return [0, 100, 0];       // Tree cover
-          case 20: return [255, 187, 34];    // Shrubland
-          case 30: return [255, 255, 76];    // Grassland
-          case 40: return [240, 150, 255];   // Cropland
-          case 50: return [250, 0, 0];       // Built-up
-          case 60: return [180, 180, 180];   // Bare land
-          case 70: return [240, 240, 240];   // Snow/Ice
-          case 80: return [0, 100, 200];     // Water
-          case 90: return [0, 150, 160];     // Wetland
-          case 95: return [0, 207, 117];     // Mangroves
-          case 100: return [250, 230, 160];  // Moss/lichen
-          default: return [200, 200, 200];   // Unknown
-        }
-
       default:
         gray = clamp(normValue * 255);
         return [gray, gray, gray];
