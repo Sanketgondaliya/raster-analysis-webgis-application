@@ -161,22 +161,22 @@ export class RasterGlobalMethodService {
         return [gray, gray, gray];
     }
   }
-applyLULCColor(value: number): [number, number, number] {
-  switch (value) {
-    case 10: return [0, 100, 0];       // Tree cover
-    case 20: return [255, 187, 34];    // Shrubland
-    case 30: return [255, 255, 76];    // Grassland
-    case 40: return [240, 150, 255];   // Cropland
-    case 50: return [250, 0, 0];       // Built-up
-    case 60: return [180, 180, 180];   // Bare / sparse vegetation
-    case 70: return [240, 240, 240];   // Snow and ice
-    case 80: return [0, 100, 200];     // Permanent water bodies
-    case 90: return [0, 150, 160];     // Herbaceous wetland
-    case 95: return [0, 207, 117];     // Mangroves
-    case 100: return [250, 230, 160];  // Moss and lichen
-    default: return [200, 200, 200];   // fallback
+  applyLULCColor(value: number): [number, number, number] {
+    switch (value) {
+      case 10: return [0, 100, 0];       // Tree cover
+      case 20: return [255, 187, 34];    // Shrubland
+      case 30: return [255, 255, 76];    // Grassland
+      case 40: return [240, 150, 255];   // Cropland
+      case 50: return [250, 0, 0];       // Built-up
+      case 60: return [180, 180, 180];   // Bare / sparse vegetation
+      case 70: return [240, 240, 240];   // Snow and ice
+      case 80: return [0, 100, 200];     // Permanent water bodies
+      case 90: return [0, 150, 160];     // Herbaceous wetland
+      case 95: return [0, 207, 117];     // Mangroves
+      case 100: return [250, 230, 160];  // Moss and lichen
+      default: return [200, 200, 200];   // fallback
+    }
   }
-}
 
   constructor(private http: HttpClient) { }
 
@@ -276,19 +276,31 @@ applyLULCColor(value: number): [number, number, number] {
   }
 
   /**
-  * Fetch raster index from backend
-  * @param service NDVI | NDBI | NDWI
-  * @param bbox string bbox "minLon,minLat,maxLon,maxLat"
-  * @param startDate Date
-  * @param endDate Date
-  */
-  fetchIndex(service: 'ndvi' | 'ndbi' | 'ndwi', bbox: string, startDate: Date, endDate: Date): Observable<Blob> {
-    const time_start = startDate.toISOString().split('T')[0];
-    const time_end = endDate.toISOString().split('T')[0];
-    const url = `${this.baseUrl}/landsat_indices?service=${service}&bbox=${bbox}&time_start=${time_start}&time_end=${time_end}`;
+   * Fetch raster index from backend (works for both bbox + shapefile zip)
+   */
+  fetchIndex(
+    service: 'ndvi' | 'ndbi' | 'ndwi',
+    startDate: Date,
+    endDate: Date,
+    shapefileZip?: File, 
+    bbox?: string
+  ): Observable<Blob> {
+    const formData = new FormData();
+    formData.append('service', service);
+    formData.append('time_start', startDate.toISOString().split('T')[0]);
+    formData.append('time_end', endDate.toISOString().split('T')[0]);
 
-    return this.http.get(url, { responseType: 'blob' });
+    if (shapefileZip) {
+      formData.append('zip_file', shapefileZip, shapefileZip.name);
+    } else if (bbox) {
+      formData.append('bbox', bbox);
+    }
+
+    const url = `${this.baseUrl}/landsat_indices`;   // single endpoint
+    return this.http.post(url, formData, { responseType: 'blob' });
   }
+
+
 
   /**
    * Fetch LST index from backend
