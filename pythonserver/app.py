@@ -17,8 +17,7 @@ import tempfile
 import ee
 from pydantic import BaseModel, Field
 
-import EVALSCRIPTS
-
+from EVALSCRIPTS import EVALSCRIPTS
 CLIENT_ID = "97fac815-7c69-4ff0-8e3b-5c5cc64c0560"
 CLIENT_SECRET = "yqu49iTT8gfXf9hx3FvLRFrAiObUIvR4"
 
@@ -470,9 +469,6 @@ async def get_index(
     zip_file: UploadFile = File(None, description="Shapefile ZIP"),
 ):
     service = service.lower()
-
-    if service not in EVALSCRIPTS:
-        return {"error": "Invalid service. Choose ndvi, ndwi, or ndbi"}
 
     geometry = None
     bbox_sh = None
