@@ -475,24 +475,79 @@
           <p-tabpanels>
             <p-tabpanel value="0">
               <div class="p-mb-3">
-                <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
+                <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"
+                  styleClass="p-button-outlined"></p-button>
               </div>
+
+              <!-- Upload Shapefile Boundary -->
+              <div class="col-12">
+                <div class="field">
+                  <label for="shapefile" class="block mb-2 font-semibold">Upload Shapefile (.zip)</label>
+
+                  <div class="flex items-center gap-2">
+                    <!-- Styled file input wrapper -->
+                    <div class="p-inputgroup w-full">
+                      <input type="file" id="shapefile" accept=".zip" (change)="onShapefileUpload($event)"
+                        class="w-full border rounded p-2" />
+                    </div>
+
+                    <!-- Clear button styled same as PrimeNG -->
+                    <p-button *ngIf="shapefileZip" icon="pi pi-times" styleClass="p-button-danger p-button-rounded"
+                      (onClick)="clearShapefile()"></p-button>
+                  </div>
+
+                  <!-- Show file name -->
+                  <small *ngIf="shapefileZip" class="text-green-600 block mt-1">
+                    Selected: {{ shapefileZip.name }}
+                  </small>
+                </div>
+              </div>
+
+
+              <!-- Date selectors -->
               <div class="p-grid p-align-center p-mb-3">
                 <div class="p-col-6">
-                  <label for="ndviStart">Start Date:</label>
-                  <p-datepicker [(ngModel)]="ndviStartDate" />
+                  <label for="ndviStart" class="block mb-2 font-semibold">Start Date:</label>
+                  <p-datepicker [(ngModel)]="ndviStartDate" inputId="ndviStart" dateFormat="yy-mm-dd"></p-datepicker>
                 </div>
                 <div class="p-col-6">
-                  <label for="ndviEnd">End Date:</label>
-                  <p-datepicker [(ngModel)]="ndviEndDate" />
+                  <label for="ndviEnd" class="block mb-2 font-semibold">End Date:</label>
+                  <p-datepicker [(ngModel)]="ndviEndDate" inputId="ndviEnd" dateFormat="yy-mm-dd"></p-datepicker>
                 </div>
               </div>
-              <p-button label="Submit" icon="pi pi-check" (onClick)="submitData('ndvi')"></p-button>
+
+              <p-button label="Submit" icon="pi pi-check" styleClass="p-button-success"
+                (onClick)="submitData('ndvi')"></p-button>
             </p-tabpanel>
             <p-tabpanel value="1">
               <div class="p-mb-3">
                 <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
               </div>
+
+              <!-- Upload Shapefile Boundary -->
+              <div class="col-12">
+                <div class="field">
+                  <label for="shapefile" class="block mb-2 font-semibold">Upload Shapefile (.zip)</label>
+
+                  <div class="flex items-center gap-2">
+                    <!-- Styled file input wrapper -->
+                    <div class="p-inputgroup w-full">
+                      <input type="file" id="shapefile" accept=".zip" (change)="onShapefileUpload($event)"
+                        class="w-full border rounded p-2" />
+                    </div>
+
+                    <!-- Clear button styled same as PrimeNG -->
+                    <p-button *ngIf="shapefileZip" icon="pi pi-times" styleClass="p-button-danger p-button-rounded"
+                      (onClick)="clearShapefile()"></p-button>
+                  </div>
+
+                  <!-- Show file name -->
+                  <small *ngIf="shapefileZip" class="text-green-600 block mt-1">
+                    Selected: {{ shapefileZip.name }}
+                  </small>
+                </div>
+              </div>
+
               <div class="p-grid p-align-center p-mb-3">
                 <div class="p-col-6">
                   <label for="ndbiStart">Start Date:</label>
@@ -509,6 +564,32 @@
               <div class="p-mb-3">
                 <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
               </div>
+
+
+                            <!-- Upload Shapefile Boundary -->
+              <div class="col-12">
+                <div class="field">
+                  <label for="shapefile" class="block mb-2 font-semibold">Upload Shapefile (.zip)</label>
+
+                  <div class="flex items-center gap-2">
+                    <!-- Styled file input wrapper -->
+                    <div class="p-inputgroup w-full">
+                      <input type="file" id="shapefile" accept=".zip" (change)="onShapefileUpload($event)"
+                        class="w-full border rounded p-2" />
+                    </div>
+
+                    <!-- Clear button styled same as PrimeNG -->
+                    <p-button *ngIf="shapefileZip" icon="pi pi-times" styleClass="p-button-danger p-button-rounded"
+                      (onClick)="clearShapefile()"></p-button>
+                  </div>
+
+                  <!-- Show file name -->
+                  <small *ngIf="shapefileZip" class="text-green-600 block mt-1">
+                    Selected: {{ shapefileZip.name }}
+                  </small>
+                </div>
+              </div>
+
               <div class="p-grid p-align-center p-mb-3">
                 <div class="p-col-6">
                   <label for="ndwiStart">Start Date:</label>
@@ -551,7 +632,7 @@
               <div class="p-mb-3">
                 <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
               </div>
-                 <div class="p-mt-3">
+              <div class="p-mt-3">
                 <h4>LST Legend (°C)</h4>
                 <div class="legend">
                   <div class="legend-item" *ngFor="let item of lulcLegend">
