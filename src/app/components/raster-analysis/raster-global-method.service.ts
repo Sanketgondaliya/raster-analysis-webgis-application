@@ -10,6 +10,11 @@ export class RasterGlobalMethodService {
   private baseUrl = environment.apiRasterUrl;
 
   applyColorRamp(value: number, ramp: string): [number, number, number] {
+    if (value === null || isNaN(value) || value === -9999) {
+      return [0, 0, 0]; // Special color → treat as transparent in renderer
+    }
+
+
     const normValue = Math.max(0, Math.min(1, value));
     const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
     let gray: number;
@@ -282,7 +287,7 @@ export class RasterGlobalMethodService {
     service: 'ndvi' | 'ndbi' | 'ndwi',
     startDate: Date,
     endDate: Date,
-    shapefileZip?: File, 
+    shapefileZip?: File,
     bbox?: string
   ): Observable<Blob> {
     const formData = new FormData();
