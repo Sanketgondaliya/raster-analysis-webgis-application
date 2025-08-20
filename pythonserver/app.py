@@ -461,43 +461,78 @@ async def elevation_profile_endpoint(
         raise HTTPException(status_code=500, detail=f"Elevation profile query failed: {str(e)}")
 
 
-
-@app.get("/landsat_indices")
+@app.post("/landsat_indices")
 async def get_index(
-    service: str = Query(..., description="ndvi, ndwi, ndbi"),
-    bbox: str = Query(..., description="bbox as minX,minY,maxX,maxY"),
-    time_start: str = Query(None, description="start date YYYY-MM-DD"),
-    time_end: str = Query(None, description="end date YYYY-MM-DD")
+    service: str = Form(..., description="ndvi, ndwi, ndbi"),
+    time_start: str = Form(None, description="start date YYYY-MM-DD"),
+    time_end: str = Form(None, description="end date YYYY-MM-DD"),
+    bbox: str = Form(None, description="bbox as minX,minY,maxX,maxY"),
+    zip_file: UploadFile = File(None, description="Shapefile ZIP"),
 ):
-    if service not in EVALSCRIPTS.EVALSCRIPTS:
+    service = service.lower()
+
+    if service not in EVALSCRIPTS:
         return {"error": "Invalid service. Choose ndvi, ndwi, or ndbi"}
 
-    bbox_coords = [float(x) for x in bbox.split(",")]
-    if len(bbox_coords) != 4:
-        return {"error": "bbox must be minX,minY,maxX,maxY"}
+    geometry = None
+    bbox_sh = None
+    gdf = None
 
-    bbox_sh = BBox(bbox=bbox_coords, crs=CRS.WGS84)
+    # --- Option 1: BBOX ---
+    if bbox:
+        try:
+            bbox_coords = [float(x) for x in bbox.split(",")]
+            if len(bbox_coords) != 4:
+                return {"error": "bbox must be minX,minY,maxX,maxY"}
+            bbox_sh = BBox(bbox=bbox_coords, crs=CRS.WGS84)
+        except Exception as e:
+            return {"error": f"Invalid bbox: {str(e)}"}
+
+    # --- Option 2: Shapefile ZIP ---
+    elif zip_file:
+        try:
+            tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+            with open(tmp_zip.name, "wb") as f:
+                f.write(await zip_file.read())
+            geometry, gdf = unzip_and_read_shapefile(tmp_zip.name)
+        except Exception as e:
+            return {"error": str(e)}
+
+    else:
+        return {"error": "Provide either bbox or shapefile ZIP"}
+
+    # --- SentinelHub Request ---
     time_interval = (time_start, time_end) if time_start and time_end else None
 
-    request = SentinelHubRequest(
-       evalscript=EVALSCRIPTS.EVALSCRIPTS[service],  # Changed to access the dictionary
-        input_data=[SentinelHubRequest.input_data(
-            data_collection=DataCollection.LANDSAT_OT_L2,
-            time_interval=time_interval
-        )],
+    sh_request = SentinelHubRequest(
+        evalscript=EVALSCRIPTS[service],
+        input_data=[
+            SentinelHubRequest.input_data(
+                data_collection=DataCollection.LANDSAT_OT_L2,
+                time_interval=time_interval
+            )
+        ],
         responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
-        bbox=bbox_sh,
+        bbox=bbox_sh if bbox_sh else None,
+        geometry=geometry if geometry else None,
         size=(512, 512),
         config=config
     )
 
-    data = request.get_data()[0]
+    data = sh_request.get_data()[0]
 
     # Temporary file for API response
     tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".tiff")
-    transform = from_bounds(*bbox_coords, data.shape[1], data.shape[0])
 
-    # Write TIFF
+    # --- Fix: Correct bbox coords ---
+    if bbox_sh:
+        bbox_coords = [bbox_sh.min_x, bbox_sh.min_y, bbox_sh.max_x, bbox_sh.max_y]
+        transform = from_bounds(*bbox_coords, data.shape[1], data.shape[0])
+    else:
+        bounds = gdf.total_bounds
+        transform = from_bounds(*bounds, data.shape[1], data.shape[0])
+
+    # Write TIFF (temporary file)
     with rasterio.open(
         tmp_file.name,
         "w",
@@ -527,6 +562,10 @@ async def get_index(
         dst.write(data, 1)
 
     return FileResponse(tmp_file.name, media_type="image/tiff", filename=f"{service}.tiff")
+
+
+
+
 
 downloader = LSTDataDownloader()
 # --- Request model ---
