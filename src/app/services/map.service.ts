@@ -13,7 +13,16 @@ declare global {
     map: Map;
   }
 }
-
+interface RasterLayerItem {
+  name: string;
+  visible: boolean;
+  layer: any;
+  bbox?: any;
+}
+interface RasterGroup {
+  type: string;
+  layers: RasterLayerItem[];
+}
 @Injectable({
   providedIn: 'root'
 })
@@ -148,5 +157,44 @@ export class MapService {
         duration: 1000
       });
     }
+  }
+  private rasterGroupsSubject = new BehaviorSubject<RasterGroup[]>([]);
+  rasterGroups$ = this.rasterGroupsSubject.asObservable();
+
+  /** Add a new raster layer to a group */
+  addRasterLayer(groupType: string, layer: RasterLayerItem): void {
+    const currentGroups = this.rasterGroupsSubject.getValue();
+    const groupIndex = currentGroups.findIndex(g => g.type === groupType);
+
+    if (groupIndex !== -1) {
+      currentGroups[groupIndex].layers.push(layer);
+    } else {
+      currentGroups.push({ type: groupType, layers: [layer] });
+    }
+
+    this.rasterGroupsSubject.next([...currentGroups]);
+  }
+  setRasterGroups(groups: RasterGroup[]): void {
+    this.rasterGroupsSubject.next(groups);
+  }
+  /** Toggle layer visibility */
+  toggleRasterVisibility(groupType: string, layerName: string, visible: boolean): void {
+    debugger
+    const currentGroups = this.rasterGroupsSubject.getValue();
+
+    currentGroups.forEach(group => {
+      if (group.type === groupType) {
+        group.layers.forEach(layer => {
+          if (layer.name === layerName) {
+            layer.visible = visible;
+            if (layer.layer) {
+              layer.layer.setVisible(visible);
+            }
+          }
+        });
+      }
+    });
+
+    this.rasterGroupsSubject.next([...currentGroups]);
   }
 }

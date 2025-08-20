@@ -909,7 +909,12 @@ export class RasterAnalysisComponent implements OnInit {
   }
   private async visualizeTiff(input: File | Blob, style: string): Promise<void> {
     try {
-      var layerNm = 'demLayer';
+      const now = new Date();
+      const formattedDateTime = now.toISOString().replace(/[:.]/g, '-');
+      // e.g. "2025-08-19T07-40-30-123Z"
+
+      var layerNm = `${style}_imageLayer_${formattedDateTime}`;
+
       this.map.getLayers().getArray()
         .filter(layer => layer.get('name') === 'demLayer')
         .forEach(layer => this.map.removeLayer(layer));
@@ -965,7 +970,8 @@ export class RasterAnalysisComponent implements OnInit {
       }
 
       ctx.putImageData(imageData, 0, 0);
-      const imageLayer = new ImageLayer({
+
+      var imageLayer = new ImageLayer({
         zIndex: 9999,
         className: layerNm,
         source: new Static({
@@ -980,119 +986,137 @@ export class RasterAnalysisComponent implements OnInit {
       });
       this.map.addLayer(imageLayer);
       this.map.getView().fit(extent3857, { padding: [50, 50, 50, 50] });
+      // ✅ also add to rasterGroupsSubject
+      this.mapService.addRasterLayer(style, {
+        name: layerNm,
+        visible: true,
+        layer: imageLayer,
+        bbox: extent4326
+      });
+
     } catch (error) {
       console.error('Error visualizing DEM:', error);
       throw error;
     }
   }
   private async visualizeTiffLulc(input: File | Blob, style: string): Promise<void> {
-  try {
-    const layerNm = 'demLayer';
+    try {
+    const now = new Date();
+      const formattedDateTime = now.toISOString().replace(/[:.]/g, '-');
+      // e.g. "2025-08-19T07-40-30-123Z"
 
-    // Remove old layer if it exists
-    this.map.getLayers().getArray()
-      .filter(layer => layer.get('name') === layerNm)
-      .forEach(layer => this.map.removeLayer(layer));
+      var layerNm = `${style}_imageLayer_${formattedDateTime}`;
 
-    // Read GeoTIFF
-    const arrayBuffer = await input.arrayBuffer();
-    const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
-    const image = await tiff.getImage();
-    const width = image.getWidth();
-    const height = image.getHeight();
-    const extent4326 = image.getBoundingBox();
-    const extent3857 = transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
+      // Remove old layer if it exists
+      this.map.getLayers().getArray()
+        .filter(layer => layer.get('name') === layerNm)
+        .forEach(layer => this.map.removeLayer(layer));
 
-    // Raster values
-    const rasterData = await image.readRasters();
-    const values = rasterData[0];
+      // Read GeoTIFF
+      const arrayBuffer = await input.arrayBuffer();
+      const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
+      const image = await tiff.getImage();
+      const width = image.getWidth();
+      const height = image.getHeight();
+      const extent4326 = image.getBoundingBox();
+      const extent3857 = transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
 
-    // Prepare min/max for continuous styles
-    let min = Infinity;
-    let max = -Infinity;
-    if (style !== 'lulc' && typeof values !== 'number') {
-      for (let i = 0; i < values.length; i++) {
-        const val = values[i];
-        if (val < min) min = val;
-        if (val > max) max = val;
+      // Raster values
+      const rasterData = await image.readRasters();
+      const values = rasterData[0];
+
+      // Prepare min/max for continuous styles
+      let min = Infinity;
+      let max = -Infinity;
+      if (style !== 'lulc' && typeof values !== 'number') {
+        for (let i = 0; i < values.length; i++) {
+          const val = values[i];
+          if (val < min) min = val;
+          if (val > max) max = val;
+        }
+      } else if (typeof values === 'number') {
+        min = max = values;
       }
-    } else if (typeof values === 'number') {
-      min = max = values;
-    }
 
-    // Prepare canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d')!;
-    const imageData = ctx.createImageData(width, height);
+      // Prepare canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      const imageData = ctx.createImageData(width, height);
 
-    if (typeof values === 'number') {
-      // Constant raster
-      const color = style === 'lulc'
-        ? this.rasterGlobalMethodService.applyLULCColor(values)
-        : this.rasterGlobalMethodService.applyColorRamp(
+      if (typeof values === 'number') {
+        // Constant raster
+        const color = style === 'lulc'
+          ? this.rasterGlobalMethodService.applyLULCColor(values)
+          : this.rasterGlobalMethodService.applyColorRamp(
             (values - min) / (max - min || 1),
             style
           );
 
-      for (let i = 0; i < imageData.data.length; i += 4) {
-        imageData.data[i] = color[0];
-        imageData.data[i + 1] = color[1];
-        imageData.data[i + 2] = color[2];
-        imageData.data[i + 3] = 255;
-      }
-    } else {
-      // Typed array
-      const length = Math.min(values.length, width * height);
-
-      if (style === 'lulc') {
-        // Categorical coloring
-        for (let i = 0; i < length; i++) {
-          const [r, g, b] = this.rasterGlobalMethodService.applyLULCColor(values[i]);
-          const idx = i * 4;
-          imageData.data[idx] = r;
-          imageData.data[idx + 1] = g;
-          imageData.data[idx + 2] = b;
-          imageData.data[idx + 3] = 255;
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          imageData.data[i] = color[0];
+          imageData.data[i + 1] = color[1];
+          imageData.data[i + 2] = color[2];
+          imageData.data[i + 3] = 255;
         }
       } else {
-        // Continuous coloring
-        for (let i = 0; i < length; i++) {
-          const norm = (values[i] - min) / (max - min || 1);
-          const [r, g, b] = this.rasterGlobalMethodService.applyColorRamp(norm, style);
-          const idx = i * 4;
-          imageData.data[idx] = r;
-          imageData.data[idx + 1] = g;
-          imageData.data[idx + 2] = b;
-          imageData.data[idx + 3] = 255;
+        // Typed array
+        const length = Math.min(values.length, width * height);
+
+        if (style === 'lulc') {
+          // Categorical coloring
+          for (let i = 0; i < length; i++) {
+            const [r, g, b] = this.rasterGlobalMethodService.applyLULCColor(values[i]);
+            const idx = i * 4;
+            imageData.data[idx] = r;
+            imageData.data[idx + 1] = g;
+            imageData.data[idx + 2] = b;
+            imageData.data[idx + 3] = 255;
+          }
+        } else {
+          // Continuous coloring
+          for (let i = 0; i < length; i++) {
+            const norm = (values[i] - min) / (max - min || 1);
+            const [r, g, b] = this.rasterGlobalMethodService.applyColorRamp(norm, style);
+            const idx = i * 4;
+            imageData.data[idx] = r;
+            imageData.data[idx + 1] = g;
+            imageData.data[idx + 2] = b;
+            imageData.data[idx + 3] = 255;
+          }
         }
       }
+
+      // Render to canvas
+      ctx.putImageData(imageData, 0, 0);
+
+      // Add OpenLayers image layer
+      const imageLayer = new ImageLayer({
+        zIndex: 9999,
+        className: layerNm,
+        source: new Static({
+          url: canvas.toDataURL(),
+          imageExtent: extent3857,
+          projection: 'EPSG:3857'
+        }),
+        opacity: 0.7,
+        properties: {
+          name: layerNm
+        }
+      });
+
+      this.map.addLayer(imageLayer);
+      this.map.getView().fit(extent3857, { padding: [50, 50, 50, 50] });
+        this.mapService.addRasterLayer(style, {
+        name: layerNm,
+        visible: true,
+        layer: imageLayer,
+        bbox: extent4326
+      });
+    } catch (error) {
+      console.error('Error visualizing raster:', error);
+      throw error;
     }
-
-    // Render to canvas
-    ctx.putImageData(imageData, 0, 0);
-
-    // Add OpenLayers image layer
-    const imageLayer = new ImageLayer({
-      zIndex: 9999,
-      className: layerNm,
-      source: new Static({
-        url: canvas.toDataURL(),
-        imageExtent: extent3857,
-        projection: 'EPSG:3857'
-      }),
-      opacity: 0.7,
-      properties: {
-        name: layerNm
-      }
-    });
-
-    this.map.addLayer(imageLayer);
-    this.map.getView().fit(extent3857, { padding: [50, 50, 50, 50] });
-  } catch (error) {
-    console.error('Error visualizing raster:', error);
-    throw error;
   }
-}
 }

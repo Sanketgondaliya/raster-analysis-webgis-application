@@ -125,78 +125,7 @@ export class LayerSwitchderComponent {
 
   ];
   uploadedFileNames: string[] = [];
-  groupedRasterLayers: RasterGroup[] = [
-    {
-      type: 'NDVI',
-      layers: [
-        {
-          name: 'NDVI 1',
-          visible: true,
-          layer: null,
-          bbox: {
-            minx: 75.0,
-            miny: 20.0,
-            maxx: 80.0,
-            maxy: 25.0,
-            crs: 'EPSG:4326'
-          }
-        },
-        {
-          name: 'NDVI 2',
-          visible: false,
-          layer: null,
-          bbox: {
-            minx: 78.5,
-            miny: 21.2,
-            maxx: 82.0,
-            maxy: 24.6,
-            crs: 'EPSG:4326'
-          }
-        },
-        {
-          name: 'NDVI PCMC',
-          visible: true,
-          layer: null,
-          bbox: {
-            minx: 70.0,
-            miny: 18.0,
-            maxx: 76.0,
-            maxy: 23.0,
-            crs: 'EPSG:4326'
-          }
-        }
-      ]
-    },
-    {
-      type: 'NDWI',
-      layers: [
-        {
-          name: 'NDWI 1',
-          visible: true,
-          layer: null,
-          bbox: {
-            minx: 71.0,
-            miny: 19.0,
-            maxx: 77.0,
-            maxy: 24.0,
-            crs: 'EPSG:4326'
-          }
-        },
-        {
-          name: 'NDWI Region A',
-          visible: false,
-          layer: null,
-          bbox: {
-            minx: 73.0,
-            miny: 18.0,
-            maxx: 78.0,
-            maxy: 23.0,
-            crs: 'EPSG:4326'
-          }
-        }
-      ]
-    }
-  ];
+  groupedRasterLayers: RasterGroup[] = [];
   constructor(
     private toastService: ToastService,
     private geoserverService: GeoserverService,
@@ -204,7 +133,17 @@ export class LayerSwitchderComponent {
     private mapService: MapService
   ) {
     this.selectedProject = localStorage.getItem('selectedProject') || '';
+
+    // Subscribe to service updates
+    this.mapService.rasterGroups$.subscribe(groups => {
+      this.groupedRasterLayers = groups;
+      this.cdr.detectChanges(); // ensure UI refresh
+    });
   }
+  ngAfterViewInit() {
+    this.cdr.detectChanges();
+  }
+
   toggleWmsLayer(layer: WmsLayerItem, event: any): void {
     const key = `wms.${layer.name}`;
     if (this.wmsWmsLayers[key]) {
@@ -212,8 +151,32 @@ export class LayerSwitchderComponent {
     }
     layer.checked = event.checked;
   }
+  toggleLayer(groupType: string, raster: any, event: any): void {
+    raster.visible = event.checked;
+    if (raster.layer) {
+      raster.layer.setVisible(raster.visible);
+    }
+  }
+
+
+
+
   toggleRasterLayer(raster: RasterLayerItem): void {
     raster.layer.setVisible(raster.visible);
+  }
+  addNewRasterLayer() {
+    this.mapService.addRasterLayer('NDVI', {
+      name: 'NDVI Auto',
+      visible: true,
+      layer: null,
+      bbox: {
+        minx: 72.0,
+        miny: 19.0,
+        maxx: 78.0,
+        maxy: 23.0,
+        crs: 'EPSG:4326'
+      }
+    });
   }
 
   zoomToRasterLayer(raster: RasterLayerItem): void {
@@ -222,20 +185,25 @@ export class LayerSwitchderComponent {
       return;
     }
 
-    const extent = [raster.bbox.minx, raster.bbox.miny, raster.bbox.maxx, raster.bbox.maxy];
-    const sourceCRS = raster.bbox.crs || 'EPSG:4326';
-
     try {
-      const transformedExtent = transformExtent(extent, sourceCRS, 'EPSG:3857');
-      this.map.getView().fit(transformedExtent, {
-        duration: 1000,
-        padding: [50, 50, 50, 50]
-      });
+      // Transform to map projection
+      const transformedExtent = transformExtent(raster.bbox, 'EPSG:4326', this.map.getView().getProjection());
+
+      if (transformedExtent) {
+        this.map.getView().fit(transformedExtent, {
+          duration: 1000,
+          padding: [50, 50, 50, 50],
+          maxZoom: 18 // optional: avoid zooming too far
+        });
+      } else {
+        this.toastService.showError('Extent transformation failed');
+      }
     } catch (error) {
       console.error('Error transforming extent:', error);
       this.toastService.showError('Failed to zoom to raster layer');
     }
   }
+
 
   ngOnInit(): void {
     this.map = this.mapService.getMap();
