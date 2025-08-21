@@ -689,6 +689,69 @@ def download_lulc(request: LULCRequest):
     except Exception as e:
         print("DEBUG ERROR:\n", traceback.format_exc())
         raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
+    
+@app.post("/lulc_statistics")
+def lulc_statistics(request: LULCRequest):
+    """
+    Returns JSON statistics (Class Area + Percentage Distribution) only.
+    """
+    try:
+        if not isinstance(request.bbox, list) or len(request.bbox) != 4:
+            raise ValueError("bbox must be [minx,miny,maxx,maxy]")
+
+        coords = [float(c) for c in request.bbox]
+        region = ee.Geometry.Rectangle(coords)
+
+        # Download single TIFF
+        tiff_path = lulc_downloader.download_lulc_single(
+            region=region,
+            scale=request.scale
+        )
+
+        # Read TIFF and calculate statistics
+        with rasterio.open(tiff_path) as src:
+            data = src.read(1)
+            total_pixels = data.size
+
+            # Correct pixel area in km²
+            pixel_area_m2 = request.scale * request.scale
+            pixel_area_km2 = pixel_area_m2 / 1e6
+
+            # LULC class mapping
+            LULC_CLASSES = {
+                10: "Tree cover",
+                20: "Shrubland",
+                30: "Grassland",
+                40: "Cropland",
+                50: "Built-up",
+                60: "Bare / sparse vegetation",
+                70: "Snow and ice",
+                80: "Permanent water bodies",
+                90: "Herbaceous wetland",
+                95: "Mangroves",
+                100: "Moss and lichen"
+            }
+
+        unique, counts = np.unique(data, return_counts=True)
+        stats = []
+        for val, cnt in zip(unique, counts):
+            if val in LULC_CLASSES:
+                area_km2 = cnt * pixel_area_km2
+                percentage = (cnt / total_pixels) * 100
+                stats.append({
+                    "class_id": int(val),
+                    "class_name": LULC_CLASSES[val],
+                    "pixel_count": int(cnt),
+                    "area_km2": round(area_km2, 2),
+                    "percentage": round(percentage, 2)
+                })
+
+        return JSONResponse(content={"lulc_statistics": stats})
+
+    except Exception as e:
+        import traceback
+        print("DEBUG ERROR:\n", traceback.format_exc())
+        raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

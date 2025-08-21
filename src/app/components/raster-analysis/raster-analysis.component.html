@@ -637,7 +637,7 @@
                 <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
               </div>
               <div class="p-mt-3">
-                <h4>LST Legend (°C)</h4>
+                <h4>LULC Legend</h4>
                 <div class="legend">
                   <div class="legend-item" *ngFor="let item of lulcLegend">
                     <span class="legend-color" [ngStyle]="{'background-color': item.color}"></span>
@@ -646,6 +646,11 @@
                 </div>
               </div>
               <p-button label="Submit" icon="pi pi-check" (onClick)="submitLULC()"></p-button>
+              <div class="p-mt-3">
+                <h4>LULC Distribution</h4>
+                <canvas id="lulcChart"></canvas>
+              </div>
+
             </p-tabpanel>
           </p-tabpanels>
         </p-tabs>

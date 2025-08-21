@@ -330,4 +330,12 @@ export class RasterGlobalMethodService {
     const url = `${this.baseUrl}/download_lulc`;
     return this.http.post(url, payload, { responseType: 'blob' });
   }
+  fetchLULCStatatics(bbox: number[]): Observable<any> {
+    const payload = {
+      bbox: bbox,
+      scale:100
+    };
+    const url = `${this.baseUrl}/lulc_statistics`;
+    return this.http.post(url, payload, { responseType: 'json' });
+  }
 }

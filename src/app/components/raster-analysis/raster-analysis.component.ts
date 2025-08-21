@@ -99,7 +99,7 @@ export class RasterAnalysisComponent implements OnInit {
 
   hillshadeStats: { min: number; max: number; mean: number } | null = null;
   hillshadeHistogram: { bins: number[]; counts: number[] } | null = null;
-
+  lulcStatistics: any
   // In your component or service class
   lstStartDate: Date = new Date('2024-01-01');
   lstEndDate: Date = new Date('2025-01-01');
@@ -226,13 +226,73 @@ export class RasterAnalysisComponent implements OnInit {
       .subscribe({
         next: (blob) => {
           this.visualizeTiffLulc(blob, 'lulc');
-          alert('✅ LST raster loaded successfully!');
+          this.getLulcStat(this.bbox); // fetch statistics and show chart
         },
         error: (err) => {
-          console.error('Failed to fetch LST raster:', err);
-          alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
+          console.error('Failed to fetch LULC raster:', err);
+          alert('❌ Failed to fetch LULC raster. No data found for the selected range/region.');
         }
       });
+  }
+
+
+  getLulcStat(bbox: any) {
+    this.rasterGlobalMethodService.fetchLULCStatatics(bbox)
+      .subscribe({
+        next: (data: any) => {
+          // Assuming `data` is JSON with `lulc_statistics`
+          this.lulcStatistics = data.lulc_statistics;
+          this.showLULCChart(); // Show chart after fetching stats
+        },
+        error: (err) => {
+          console.error('Failed to fetch LULC stats:', err);
+          alert('❌ Failed to fetch LULC stats. No data found for the selected range/region.');
+        }
+      });
+  }
+
+
+
+  showLULCChart() {
+    const labels = this.lulcStatistics.map((x: { class_name: any; }) => x.class_name);
+    const data = this.lulcStatistics.map((x: { percentage: any; }) => x.percentage);
+
+    new Chart('lulcChart', {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'LULC Percentage (%)',
+          data: data,
+          backgroundColor: [
+            '#006400', '#228B22', '#7CFC00', '#FFFF00',
+            '#FF4500', '#D2B48C', '#1E90FF', '#00CED1', '#2E8B57'
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.label}: ${context.raw}%`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Percentage (%)'
+            }
+          }
+        }
+      }
+    });
   }
 
 
