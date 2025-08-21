@@ -49,6 +49,7 @@ import { GeoJSON } from 'ol/format';
 
 
 
+
 @Component({
   selector: 'app-raster-analysis',
   standalone: true,
@@ -74,6 +75,9 @@ export class RasterAnalysisComponent implements OnInit {
   aspectOptions: any = [];
   zFactorOptions: any = [];
   scaleOptions: any = [];
+  lulcLegend: any = [];
+  lstLegend: any = [];
+  aspectLegend: any = [];
   demAnalysisTypes: any = [];
   demTypes: any = [];
   slopeLegend: any = [];
@@ -87,32 +91,21 @@ export class RasterAnalysisComponent implements OnInit {
   ndwiStartDate: Date | undefined;
   ndwiEndDate: Date | undefined;
   bbox: any;
-
+  slopeStats: any = null;
+  slopeChartData: any;
+  slopeChartOptions: any;
+  aspectlegendshow: boolean = false;
   shapefileZip: File | null = null;
+
+  hillshadeStats: { min: number; max: number; mean: number } | null = null;
+  hillshadeHistogram: { bins: number[]; counts: number[] } | null = null;
+
   // In your component or service class
   lstStartDate: Date = new Date('2024-01-01');
   lstEndDate: Date = new Date('2025-01-01');
 
-  lstLegend = [
-    { label: 'Very Cold (<0.2)', color: 'rgb(49, 54, 149)' },
-    { label: 'Cold (0.2–0.4)', color: 'rgb(69, 117, 180)' },
-    { label: 'Mild (0.4–0.6)', color: 'rgb(120, 198, 121)' },
-    { label: 'Hot (0.6–0.8)', color: 'rgb(253, 174, 97)' },
-    { label: 'Extreme (>0.8)', color: 'rgb(215, 25, 28)' }
-  ];
-  lulcLegend = [
-    { label: 'Tree cover', color: '#006400' },
-    { label: 'Shrubland', color: '#ffbb22' },
-    { label: 'Grassland', color: '#ffff4c' },
-    { label: 'Cropland', color: '#f096ff' },
-    { label: 'Built-up', color: '#fa0000' },
-    { label: 'Bare / sparse vegetation', color: '#b4b4b4' },
-    { label: 'Snow and ice', color: '#f0f0f0' },
-    { label: 'Permanent water bodies', color: '#0064c8' },
-    { label: 'Herbaceous wetland', color: '#0096a0' },
-    { label: 'Mangroves', color: '#00cf75' },
-    { label: 'Moss and lichen', color: '#fae6a0' }
-  ];
+
+
 
   /** Upload Shapefile (.zip) */
   onShapefileUpload(event: any) {
@@ -125,858 +118,888 @@ export class RasterAnalysisComponent implements OnInit {
       this.shapefileZip = null;
     }
   }
+  showSlopeChart(stats: any, classification: any[]) {
+    const ctx = document.getElementById('chartCanvas-slope-legend') as HTMLCanvasElement;
+    debugger
+    new Chart(ctx, {
+      type: 'bar',   // 👈 change pie → bar
+      data: {
+        labels: classification.map(c => c.label),
+        datasets: [{
+          label: 'Slope % Area',
+          data: classification.map(c => c.percent),
+          backgroundColor: classification.map(c => c.color)
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false } // bar charts usually don't need legend if labels are shown
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Slope Class' }
+          },
+          y: {
+            title: { display: true, text: '% Area' },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
 
   /** Clear shapefile selection */
   clearShapefile() {
-    this.shapefileZip = null; 
+    this.shapefileZip = null;
     const fileInput = document.getElementById('shapefile') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = ''; // reset file input
     }
   }
 
-    // submitData(service: 'ndvi' | 'ndbi' | 'ndwi') {
-    //   let startDate: Date | undefined;
-    //   let endDate: Date | undefined;
+  submitData(service: 'ndvi' | 'ndbi' | 'ndwi') {
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
 
-    //   switch (service) {
-    //     case 'ndvi':
-    //       startDate = this.ndviStartDate;
-    //       endDate = this.ndviEndDate;
-    //       break;
-    //     case 'ndbi':
-    //       startDate = this.ndbiStartDate;
-    //       endDate = this.ndbiEndDate;
-    //       break;
-    //     case 'ndwi':
-    //       startDate = this.ndwiStartDate;
-    //       endDate = this.ndwiEndDate;
-    //       break;
-    //   }
-
-    //   if (!startDate || !endDate) {
-    //     alert('Please select start and end dates!');
-    //     return;
-    //   }
-    //   this.rasterGlobalMethodService.fetchIndex(service, this.bbox.toString(), startDate, endDate)
-    //     .subscribe({
-    //       next: (blob) => {
-    //         this.visualizeTiff(blob, service);
-
-    //       },
-    //       error: (err) => {
-    //         console.error('Failed to fetch raster:', err);
-    //         alert('Failed to fetch raster. Check console.');
-    //       }
-    //     });
-    // }
-
-    submitData(service: 'ndvi' | 'ndbi' | 'ndwi') {
-      let startDate: Date | undefined;
-      let endDate: Date | undefined;
-
-      switch (service) {
-        case 'ndvi':
-          startDate = this.ndviStartDate;
-          endDate = this.ndviEndDate;
-          break;
-        case 'ndbi':
-          startDate = this.ndbiStartDate;
-          endDate = this.ndbiEndDate;
-          break;
-        case 'ndwi':
-          startDate = this.ndwiStartDate;
-          endDate = this.ndwiEndDate;
-          break;
-      }
-
-      if (!startDate || !endDate) {
-        alert('Please select start and end dates!');
-        return;
-      }
-
-      if (!this.shapefileZip && !this.bbox) {
-        alert('Please provide either bbox or shapefile!');
-        return;
-      }
-
-      this.rasterGlobalMethodService.fetchIndex(
-        service,
-        startDate,
-        endDate,
-        this.shapefileZip ?? undefined,
-        this.bbox?.toString()
-      ).subscribe({
-        next: (blob) => this.visualizeTiff(blob, service),
-        error: (err) => {
-          console.error('Failed to fetch raster:', err);
-          alert('Raster fetch failed. Check console.');
-        }
-      });
+    switch (service) {
+      case 'ndvi':
+        startDate = this.ndviStartDate;
+        endDate = this.ndviEndDate;
+        break;
+      case 'ndbi':
+        startDate = this.ndbiStartDate;
+        endDate = this.ndbiEndDate;
+        break;
+      case 'ndwi':
+        startDate = this.ndwiStartDate;
+        endDate = this.ndwiEndDate;
+        break;
     }
 
-
-    submitLST() {
-      if (!this.lstStartDate || !this.lstEndDate) {
-        alert('⚠️ Please select start and end dates for LST!');
-        return;
-      }
-
-      this.rasterGlobalMethodService.fetchLST(this.bbox, this.lstStartDate, this.lstEndDate)
-        .subscribe({
-          next: (blob) => {
-            this.visualizeTiff(blob, 'lst');
-            alert('✅ LST raster loaded successfully!');
-          },
-          error: (err) => {
-            console.error('Failed to fetch LST raster:', err);
-            alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
-          }
-        });
-    }
-    submitLULC() {
-      this.rasterGlobalMethodService.fetchLULC(this.bbox)
-        .subscribe({
-          next: (blob) => {
-            this.visualizeTiffLulc(blob, 'lulc');
-            alert('✅ LST raster loaded successfully!');
-          },
-          error: (err) => {
-            console.error('Failed to fetch LST raster:', err);
-            alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
-          }
-        });
+    if (!startDate || !endDate) {
+      alert('Please select start and end dates!');
+      return;
     }
 
-
-    extent: Extent = {
-      west: null,
-      east: null,
-      south: null,
-      north: null
-    };
-    contourLayer: VectorLayer<any> | null = null;
-
-    selectedDemAnalysis: string | null = null;
-
-    map!: Map;
-    draw!: Draw;
-    vectorSource = new VectorSource();
-    vectorLayer!: VectorLayer;
-
-    _extent: any;
-
-    constructor(
-      private mapService: MapService,
-      private toastService: ToastService,
-      private rasterService: RasterAnalysisService,
-      private cesiumService: CesiumService,
-      private fb: FormBuilder,
-      private optionsService: OptionsService,
-      private rasterGlobalMethodService: RasterGlobalMethodService
-
-    ) {
-      this.slopeForm = this.fb.group({
-        slopeType: [null],      // optional
-        zFactor: [null],        // optional
-        demFile: [null] // only this is required
-      });
-      this.aspectForm = this.fb.group({
-        outputformat: [null],      // optional
-        FlatAreasHandling: [null],        // optional
-        demFile: [null] // only this is required
-      });
-      this.hillshadeForm = this.fb.group({
-        demFile: [null],
-        z_factor: [1.0, [Validators.required, Validators.min(0.1)]],
-        azimuth: [315.0, [Validators.required, Validators.min(0), Validators.max(360)]],
-        altitude: [45.0, [Validators.required, Validators.min(0), Validators.max(90)]]
-      });
-      this.roughnessForm = this.fb.group({
-        scale: [null],      // optional
-        zFactor: [null],        // optional
-        demFile: [null] // only this is required
-      });
-
-      this.tpiForm = this.fb.group({
-        scale: [null],      // optional
-        zFactor: [null],        // optional
-        demFile: [null] // only this is required
-      });
-      this.contoursForm = this.fb.group({
-        Interval: [null, [Validators.min(1)]], // required
-        demFile: [null]
-      });
-      this.elevationPointForm = this.fb.group({
-        demFile: [null],
-        latitude: [null, [Validators.required, Validators.min(-90), Validators.max(90)]],
-        longitude: [null, [Validators.required, Validators.min(-180), Validators.max(180)]],
-      });
-
-      this.elevationProfileForm = this.fb.group({
-        demFile: [null],
-        Latitude1: [45.83549],
-        Latitude2: [45.854430],
-        Longitude2: [6.16558],
-        Longitude1: [6.205486],
-        samples: [50]
-      });
-
-
-
-    }
-    onFileSelect(event: any) {
-      if (event.files && event.files.length > 0) {
-        this.selectedFile = event.files[0];
-        console.log('Selected file:', this.selectedFile);
-        this.elevationProfileForm.patchValue({ demFile: this.selectedFile });
-        this.elevationProfileForm.get('demFile')?.markAsTouched();
-      }
-    }
-    onElevationFileSelect(event: any) {
-      if (event.files && event.files.length > 0) {
-        const file: File = event.files[0];
-        this.selectedFile = file;
-        console.log('Selected file:', this.selectedFile);
-        this.elevationProfileForm.patchValue({ demFile: file });
-        this.elevationProfileForm.get('demFile')?.markAsTouched();
-        const reader = new FileReader();
-        reader.onload = (e: any) => {
-          const arrayBuffer = e.target.result as ArrayBuffer;
-          const blob = new Blob([arrayBuffer], { type: 'image/tiff' });
-          this.visualizeTiff(blob, 'dem');
-        };
-        reader.readAsArrayBuffer(file);
-      }
+    if (!this.shapefileZip && !this.bbox) {
+      alert('Please provide either bbox or shapefile!');
+      return;
     }
 
-
-    onSlopeSubmit() {
-      if (this.slopeForm?.valid && this.selectedFile) {
-        const { slopeType, zFactor } = this.slopeForm.value;
-        this.rasterGlobalMethodService.calculateSlope(this.selectedFile, slopeType, zFactor)
-          .subscribe(res => {
-            console.log('Slope metadata:', res.parameters);
-            const byteCharacters = atob(res.file_base64);
-            const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'image/tiff' });
-            this.visualizeTiff(blob, 'slope');
-          });
-      } else {
-        console.warn('Form invalid or file not selected');
-      }
-    }
-    onAspectSubmit() {
-      if (this.slopeForm?.valid && this.selectedFile) {
-        const { FlatAreasHandling, outputformat } = this.slopeForm.value;
-        this.rasterGlobalMethodService.calculateAspect(this.selectedFile, FlatAreasHandling, outputformat)
-          .subscribe(res => {
-            console.log('Slope metadata:', res.parameters);
-            const byteCharacters = atob(res.file_base64);
-            const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'image/tiff' });
-            this.visualizeTiff(blob, 'aspect');
-          });
-      } else {
-        console.warn('Form invalid or file not selected');
-      }
-    }
-    onHillshadeSubmit() {
-      if (this.hillshadeForm?.valid && this.selectedFile) {
-        const { z_factor, azimuth, altitude } = this.hillshadeForm.value;
-
-        this.rasterGlobalMethodService
-          .calculateHillshade(this.selectedFile, z_factor, azimuth, altitude)
-          .subscribe(res => {
-            console.log('Hillshade metadata:', res.parameters);
-
-            const byteCharacters = atob(res.file_base64);
-            const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'image/tiff' });
-
-            this.visualizeTiff(blob, 'hillshade');
-          });
-      } else {
-        console.warn('Hillshade form invalid or file not selected');
-      }
-    }
-
-    onRoughnessSubmit() {
-      if (this.roughnessForm?.valid && this.selectedFile) {
-        const { scale, zFactor } = this.roughnessForm.value;
-        this.rasterGlobalMethodService.calculateRoughness(this.selectedFile, scale, zFactor)
-          .subscribe(res => {
-            console.log('Slope metadata:', res.parameters);
-            const byteCharacters = atob(res.file_base64);
-            const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'image/tiff' });
-            this.visualizeTiff(blob, 'roughness');
-          });
-      } else {
-        console.warn('Form invalid or file not selected');
-      }
-    }
-
-
-    onTpiSubmit() {
-      if (this.tpiForm?.valid && this.selectedFile) {
-        const { scale, zFactor } = this.tpiForm.value;
-        this.rasterGlobalMethodService.calculateTPI(this.selectedFile, scale, zFactor)
-          .subscribe(res => {
-            console.log('Slope metadata:', res.parameters);
-            const byteCharacters = atob(res.file_base64);
-            const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'image/tiff' });
-            this.visualizeTiff(blob, 'tpi');
-          });
-      } else {
-        console.warn('Form invalid or file not selected');
-      }
-    }
-    startPointFeature = new Feature();
-    endPointFeature = new Feature();
-
-    pointLayer = new VectorLayer({
-      source: new VectorSource({
-        features: [this.startPointFeature, this.endPointFeature]
-      }),
-      style: (feature) => {
-        const color = feature.get('type') === 'start' ? 'green' : 'red';
-        return new Style({
-          image: new CircleStyle({
-            radius: 6,
-            fill: new Fill({ color }),
-            stroke: new Stroke({ color: '#fff', width: 2 })
-          })
-        });
+    this.rasterGlobalMethodService.fetchIndex(
+      service,
+      startDate,
+      endDate,
+      this.shapefileZip ?? undefined,
+      this.bbox?.toString()
+    ).subscribe({
+      next: (blob) => this.visualizeTiff(blob, service),
+      error: (err) => {
+        console.error('Failed to fetch raster:', err);
+        alert('Raster fetch failed. Check console.');
       }
     });
-    selectionMode: 'start' | 'end' | null = null;
+  }
 
-    // Add this layer to the map once in ngOnInit or constructor
-    activatePointSelection(mode: 'start' | 'end') {
-      this.selectionMode = mode;
-      console.log(`Click on map to set ${mode} point`);
 
-      this.map.once('click', (evt) => {
-        const [lon, lat] = toLonLat(evt.coordinate);
+  submitLST() {
+    if (!this.lstStartDate || !this.lstEndDate) {
+      alert('⚠️ Please select start and end dates for LST!');
+      return;
+    }
 
-        if (mode === 'start') {
-          this.elevationProfileForm.patchValue({
-            Latitude1: lat,
-            Longitude1: lon
-          });
-          this.startPointFeature.setGeometry(new Point(fromLonLat([lon, lat])));
-          this.startPointFeature.set('type', 'start');
-        } else {
-          this.elevationProfileForm.patchValue({
-            Latitude2: lat,
-            Longitude2: lon
-          });
-          this.endPointFeature.setGeometry(new Point(fromLonLat([lon, lat])));
-          this.endPointFeature.set('type', 'end');
+    this.rasterGlobalMethodService.fetchLST(this.bbox, this.lstStartDate, this.lstEndDate)
+      .subscribe({
+        next: (blob) => {
+          this.visualizeTiff(blob, 'lst');
+          alert('✅ LST raster loaded successfully!');
+        },
+        error: (err) => {
+          console.error('Failed to fetch LST raster:', err);
+          alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
         }
+      });
+  }
+  submitLULC() {
+    this.rasterGlobalMethodService.fetchLULC(this.bbox)
+      .subscribe({
+        next: (blob) => {
+          this.visualizeTiffLulc(blob, 'lulc');
+          alert('✅ LST raster loaded successfully!');
+        },
+        error: (err) => {
+          console.error('Failed to fetch LST raster:', err);
+          alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
+        }
+      });
+  }
 
-        this.selectionMode = null;
+
+  extent: Extent = {
+    west: null,
+    east: null,
+    south: null,
+    north: null
+  };
+  contourLayer: VectorLayer<any> | null = null;
+
+  selectedDemAnalysis: string | null = null;
+
+  map!: Map;
+  draw!: Draw;
+  vectorSource = new VectorSource();
+  vectorLayer!: VectorLayer;
+
+  _extent: any;
+
+  constructor(
+    private mapService: MapService,
+    private toastService: ToastService,
+    private rasterService: RasterAnalysisService,
+    private cesiumService: CesiumService,
+    private fb: FormBuilder,
+    private optionsService: OptionsService,
+    private rasterGlobalMethodService: RasterGlobalMethodService
+
+  ) {
+    this.slopeForm = this.fb.group({
+      slopeType: [null],      // optional
+      zFactor: [null],        // optional
+      demFile: [null] // only this is required
+    });
+    this.aspectForm = this.fb.group({
+      outputformat: [null],      // optional
+      FlatAreasHandling: [null],        // optional
+      demFile: [null] // only this is required
+    });
+    this.hillshadeForm = this.fb.group({
+      demFile: [null],
+      z_factor: [1.0, [Validators.required, Validators.min(0.1)]],
+      azimuth: [315.0, [Validators.required, Validators.min(0), Validators.max(360)]],
+      altitude: [45.0, [Validators.required, Validators.min(0), Validators.max(90)]]
+    });
+    this.roughnessForm = this.fb.group({
+      scale: [null],      // optional
+      zFactor: [null],        // optional
+      demFile: [null] // only this is required
+    });
+
+    this.tpiForm = this.fb.group({
+      scale: [null],      // optional
+      zFactor: [null],        // optional
+      demFile: [null] // only this is required
+    });
+    this.contoursForm = this.fb.group({
+      Interval: [null, [Validators.min(1)]], // required
+      demFile: [null]
+    });
+    this.elevationPointForm = this.fb.group({
+      demFile: [null],
+      latitude: [null, [Validators.required, Validators.min(-90), Validators.max(90)]],
+      longitude: [null, [Validators.required, Validators.min(-180), Validators.max(180)]],
+    });
+
+    this.elevationProfileForm = this.fb.group({
+      demFile: [null],
+      Latitude1: [45.83549],
+      Latitude2: [45.854430],
+      Longitude2: [6.16558],
+      Longitude1: [6.205486],
+      samples: [50]
+    });
+
+
+
+  }
+  onFileSelect(event: any) {
+    if (event.files && event.files.length > 0) {
+      this.selectedFile = event.files[0];
+      console.log('Selected file:', this.selectedFile);
+      this.elevationProfileForm.patchValue({ demFile: this.selectedFile });
+      this.elevationProfileForm.get('demFile')?.markAsTouched();
+    }
+  }
+  onElevationFileSelect(event: any) {
+    if (event.files && event.files.length > 0) {
+      const file: File = event.files[0];
+      this.selectedFile = file;
+      console.log('Selected file:', this.selectedFile);
+      this.elevationProfileForm.patchValue({ demFile: file });
+      this.elevationProfileForm.get('demFile')?.markAsTouched();
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const arrayBuffer = e.target.result as ArrayBuffer;
+        const blob = new Blob([arrayBuffer], { type: 'image/tiff' });
+        this.visualizeTiff(blob, 'dem');
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  }
+
+
+
+
+
+
+  onSlopeSubmit() {
+    if (this.slopeForm?.valid && this.selectedFile) {
+      const { slopeType, zFactor } = this.slopeForm.value;
+      this.rasterGlobalMethodService.calculateSlope(this.selectedFile, slopeType, zFactor)
+        .subscribe(res => {
+          console.log('Slope metadata:', res.parameters);
+
+          // --- Handle TIFF visualization ---
+          const byteCharacters = atob(res.file_base64);
+          const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/tiff' });
+          this.visualizeTiff(blob, 'slope');
+
+          // --- Update Legend ---
+          this.slopeLegend = res.parameters.classification;
+
+          // --- Show Statistics as Graph ---
+          console.log(res.parameters);
+          this.slopeStats = res.parameters.stats
+          this.showSlopeChart(res.parameters.stats, res.parameters.classification);
+        });
+    } else {
+      console.warn('Form invalid or file not selected');
+    }
+  }
+
+  onAspectSubmit() {
+    if (this.slopeForm?.valid && this.selectedFile) {
+      const { FlatAreasHandling, outputformat } = this.slopeForm.value;
+      this.rasterGlobalMethodService.calculateAspect(this.selectedFile, FlatAreasHandling, outputformat)
+        .subscribe(res => {
+          console.log('Slope metadata:', res.parameters);
+          this.aspectlegendshow = true;
+          const byteCharacters = atob(res.file_base64);
+          const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/tiff' });
+          this.visualizeTiff(blob, 'aspect');
+        });
+    } else {
+      console.warn('Form invalid or file not selected');
+      this.aspectlegendshow = false;
+    }
+  }
+
+
+
+
+
+
+
+
+  onHillshadeSubmit() {
+    if (this.hillshadeForm?.valid && this.selectedFile) {
+      const { z_factor, azimuth, altitude } = this.hillshadeForm.value;
+
+      this.rasterGlobalMethodService
+        .calculateHillshade(this.selectedFile, z_factor, azimuth, altitude)
+        .subscribe(res => {
+          console.log('Hillshade metadata:', res.parameters);
+          console.log('Stats:', res.stats);
+          console.log('Histogram:', res.histogram);
+
+          // Convert base64 → Blob
+          const byteCharacters = atob(res.file_base64);
+          const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/tiff' });
+
+          this.visualizeTiff(blob, 'hillshade');
+          this.hillshadeStats = res.stats;
+
+
+        });
+    } else {
+      console.warn('Hillshade form invalid or file not selected');
+    }
+  }
+
+
+  onRoughnessSubmit() {
+    if (this.roughnessForm?.valid && this.selectedFile) {
+      const { scale, zFactor } = this.roughnessForm.value;
+      this.rasterGlobalMethodService.calculateRoughness(this.selectedFile, scale, zFactor)
+        .subscribe(res => {
+          console.log('Slope metadata:', res.parameters);
+          const byteCharacters = atob(res.file_base64);
+          const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/tiff' });
+          this.visualizeTiff(blob, 'roughness');
+        });
+    } else {
+      console.warn('Form invalid or file not selected');
+    }
+  }
+
+
+  onTpiSubmit() {
+    if (this.tpiForm?.valid && this.selectedFile) {
+      const { scale, zFactor } = this.tpiForm.value;
+      this.rasterGlobalMethodService.calculateTPI(this.selectedFile, scale, zFactor)
+        .subscribe(res => {
+          console.log('Slope metadata:', res.parameters);
+          const byteCharacters = atob(res.file_base64);
+          const byteNumbers = Array.from(byteCharacters, c => c.charCodeAt(0));
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/tiff' });
+          this.visualizeTiff(blob, 'tpi');
+        });
+    } else {
+      console.warn('Form invalid or file not selected');
+    }
+  }
+  startPointFeature = new Feature();
+  endPointFeature = new Feature();
+
+  pointLayer = new VectorLayer({
+    source: new VectorSource({
+      features: [this.startPointFeature, this.endPointFeature]
+    }),
+    style: (feature) => {
+      const color = feature.get('type') === 'start' ? 'green' : 'red';
+      return new Style({
+        image: new CircleStyle({
+          radius: 6,
+          fill: new Fill({ color }),
+          stroke: new Stroke({ color: '#fff', width: 2 })
+        })
       });
     }
+  });
+  selectionMode: 'start' | 'end' | null = null;
 
+  // Add this layer to the map once in ngOnInit or constructor
+  activatePointSelection(mode: 'start' | 'end') {
+    this.selectionMode = mode;
+    console.log(`Click on map to set ${mode} point`);
 
+    this.map.once('click', (evt) => {
+      const [lon, lat] = toLonLat(evt.coordinate);
 
-
-
-    onContoursSubmit() {
-      if (this.contoursForm?.valid && this.selectedFile) {
-        const { Interval } = this.contoursForm.value;
-        this.rasterGlobalMethodService
-          .calculateContours(this.selectedFile, Interval)
-          .subscribe((res: any) => {
-            if (res && res.features) {
-              if (this.contourLayer) {
-                this.map.removeLayer(this.contourLayer);
-              }
-
-              const geojsonFormat = new GeoJSON();
-              const features = geojsonFormat.readFeatures(res, {
-                featureProjection: this.map.getView().getProjection()
-              });
-
-              // 1️⃣ Find min/max elevation
-              const elevations = features
-                .map(f => Number(f.get('ELEV')))
-                .filter(v => !isNaN(v));
-              const minElev = Math.min(...elevations);
-              const maxElev = Math.max(...elevations);
-              const range = maxElev - minElev;
-              const step = range / 5; // 5 classes
-
-              // 2️⃣ Color scale from Red -> Orange -> Yellow -> Light Blue -> Blue
-              const classColors = ['#ff0000', '#ff8000', '#ffff00', '#00bfff', '#0000ff'];
-
-
-              // 3️⃣ Create layer with classification
-              this.contourLayer = new VectorLayer({
-                source: new VectorSource({ features }),
-                style: feature => {
-                  const elev = Number(feature.get('ELEV'));
-                  let classIndex = Math.floor((elev - minElev) / step);
-                  if (classIndex >= 5) classIndex = 4; // clamp max
-                  const color = classColors[classIndex];
-
-                  return new Style({
-                    stroke: new Stroke({
-                      color: color,
-                      width: 1.5
-                    }),
-                    text: new Text({
-                      text: String(elev ?? ''),
-                      font: '12px Calibri,sans-serif',
-                      fill: new Fill({ color: '#000' }),
-                      stroke: new Stroke({ color: '#fff', width: 2 }),
-                      placement: 'line'
-                    })
-                  });
-                }
-              });
-
-              this.map.addLayer(this.contourLayer);
-
-              // 4️⃣ Zoom to extent
-              const extent = this.contourLayer.getSource()?.getExtent();
-              if (extent && extent.every((v: number) => isFinite(v))) {
-                this.map.getView().fit(extent, { padding: [20, 20, 20, 20] });
-              }
-            } else {
-              console.warn('Invalid contour GeoJSON from API');
-            }
-          });
-      } else {
-        console.warn('Form invalid or file not selected');
-      }
-    }
-
-
-    onElevationPointSubmit() {
-      if (this.elevationPointForm?.valid && this.selectedFile) {
-        const { latitude, longitude } = this.elevationPointForm.value;
-        this.rasterGlobalMethodService
-          .getElevationAtPoint(this.selectedFile, latitude, longitude)
-          .subscribe(
-            res => {
-              console.log("Elevation at point:", res);
-              // You could also display it in a toast or UI element
-            },
-            err => {
-              console.error("Error fetching elevation:", err);
-            }
-          );
-      } else {
-        console.warn('Form invalid or file not selected');
-      }
-    }
-
-    onElevationProfileSubmit() {
-      if (this.elevationProfileForm?.valid && this.selectedFile) {
-        const { Latitude1, Longitude1, Latitude2, Longitude2, samples } = this.elevationProfileForm.value;
-        this.rasterGlobalMethodService
-          .getElevationProfile(this.selectedFile, Latitude1, Longitude1, Latitude2, Longitude2, samples)
-          .subscribe(
-            (res: any) => {
-              console.log("Elevation profile data:", res);
-              this.renderChart(res.profile);
-            },
-            err => {
-              console.error("Error fetching elevation profile:", err);
-            }
-          );
-      } else {
-        console.warn('Form invalid or file not selected');
-      }
-    }
-
-    highlightFeature: Feature | null = null;
-    highlightLayer: VectorLayer<VectorSource> | null = null;
-
-    highlightMapPoint(lat: number, lon: number) {
-      const coords = fromLonLat([lon, lat]);
-      if (this.highlightFeature) {
-        (this.highlightFeature.getGeometry() as Point).setCoordinates(coords);
-      } else {
-        this.highlightFeature = new Feature({
-          geometry: new Point(coords)
+      if (mode === 'start') {
+        this.elevationProfileForm.patchValue({
+          Latitude1: lat,
+          Longitude1: lon
         });
-        const highlightStyle = new Style({
-          image: new CircleStyle({
-            radius: 7,
-            fill: new Fill({ color: 'red' }),
-            stroke: new Stroke({ color: '#fff', width: 2 })
-          })
+        this.startPointFeature.setGeometry(new Point(fromLonLat([lon, lat])));
+        this.startPointFeature.set('type', 'start');
+      } else {
+        this.elevationProfileForm.patchValue({
+          Latitude2: lat,
+          Longitude2: lon
         });
-        this.highlightFeature.setStyle(highlightStyle);
-        if (!this.highlightLayer) {
-          this.highlightLayer = new VectorLayer({
-            source: new VectorSource(),
-            zIndex: 99999
-          });
-          this.map.addLayer(this.highlightLayer);
-        }
-        this.highlightLayer.getSource()?.addFeature(this.highlightFeature);
+        this.endPointFeature.setGeometry(new Point(fromLonLat([lon, lat])));
+        this.endPointFeature.set('type', 'end');
       }
-      this.map.getView().animate({
-        center: coords,
-        zoom: 13,
+
+      this.selectionMode = null;
+    });
+  }
+
+
+
+
+
+  onContoursSubmit() {
+    if (this.contoursForm?.valid && this.selectedFile) {
+      const { Interval } = this.contoursForm.value;
+      this.rasterGlobalMethodService
+        .calculateContours(this.selectedFile, Interval)
+        .subscribe((res: any) => {
+          if (res && res.features) {
+            if (this.contourLayer) {
+              this.map.removeLayer(this.contourLayer);
+            }
+
+            const geojsonFormat = new GeoJSON();
+            const features = geojsonFormat.readFeatures(res, {
+              featureProjection: this.map.getView().getProjection()
+            });
+
+            // 1️⃣ Find min/max elevation
+            const elevations = features
+              .map(f => Number(f.get('ELEV')))
+              .filter(v => !isNaN(v));
+            const minElev = Math.min(...elevations);
+            const maxElev = Math.max(...elevations);
+            const range = maxElev - minElev;
+            const step = range / 5; // 5 classes
+
+            // 2️⃣ Color scale from Red -> Orange -> Yellow -> Light Blue -> Blue
+            const classColors = ['#ff0000', '#ff8000', '#ffff00', '#00bfff', '#0000ff'];
+
+
+            // 3️⃣ Create layer with classification
+            this.contourLayer = new VectorLayer({
+              source: new VectorSource({ features }),
+              style: feature => {
+                const elev = Number(feature.get('ELEV'));
+                let classIndex = Math.floor((elev - minElev) / step);
+                if (classIndex >= 5) classIndex = 4; // clamp max
+                const color = classColors[classIndex];
+
+                return new Style({
+                  stroke: new Stroke({
+                    color: color,
+                    width: 1.5
+                  }),
+                  text: new Text({
+                    text: String(elev ?? ''),
+                    font: '12px Calibri,sans-serif',
+                    fill: new Fill({ color: '#000' }),
+                    stroke: new Stroke({ color: '#fff', width: 2 }),
+                    placement: 'line'
+                  })
+                });
+              }
+            });
+
+            this.map.addLayer(this.contourLayer);
+
+            // 4️⃣ Zoom to extent
+            const extent = this.contourLayer.getSource()?.getExtent();
+            if (extent && extent.every((v: number) => isFinite(v))) {
+              this.map.getView().fit(extent, { padding: [20, 20, 20, 20] });
+            }
+          } else {
+            console.warn('Invalid contour GeoJSON from API');
+          }
+        });
+    } else {
+      console.warn('Form invalid or file not selected');
+    }
+  }
+
+
+  onElevationPointSubmit() {
+    if (this.elevationPointForm?.valid && this.selectedFile) {
+      const { latitude, longitude } = this.elevationPointForm.value;
+      this.rasterGlobalMethodService
+        .getElevationAtPoint(this.selectedFile, latitude, longitude)
+        .subscribe(
+          res => {
+            console.log("Elevation at point:", res);
+            // You could also display it in a toast or UI element
+          },
+          err => {
+            console.error("Error fetching elevation:", err);
+          }
+        );
+    } else {
+      console.warn('Form invalid or file not selected');
+    }
+  }
+
+  onElevationProfileSubmit() {
+    if (this.elevationProfileForm?.valid && this.selectedFile) {
+      const { Latitude1, Longitude1, Latitude2, Longitude2, samples } = this.elevationProfileForm.value;
+      this.rasterGlobalMethodService
+        .getElevationProfile(this.selectedFile, Latitude1, Longitude1, Latitude2, Longitude2, samples)
+        .subscribe(
+          (res: any) => {
+            console.log("Elevation profile data:", res);
+            this.renderChart(res.profile);
+          },
+          err => {
+            console.error("Error fetching elevation profile:", err);
+          }
+        );
+    } else {
+      console.warn('Form invalid or file not selected');
+    }
+  }
+
+  highlightFeature: Feature | null = null;
+  highlightLayer: VectorLayer<VectorSource> | null = null;
+
+  highlightMapPoint(lat: number, lon: number) {
+    const coords = fromLonLat([lon, lat]);
+    if (this.highlightFeature) {
+      (this.highlightFeature.getGeometry() as Point).setCoordinates(coords);
+    } else {
+      this.highlightFeature = new Feature({
+        geometry: new Point(coords)
       });
+      const highlightStyle = new Style({
+        image: new CircleStyle({
+          radius: 7,
+          fill: new Fill({ color: 'red' }),
+          stroke: new Stroke({ color: '#fff', width: 2 })
+        })
+      });
+      this.highlightFeature.setStyle(highlightStyle);
+      if (!this.highlightLayer) {
+        this.highlightLayer = new VectorLayer({
+          source: new VectorSource(),
+          zIndex: 99999
+        });
+        this.map.addLayer(this.highlightLayer);
+      }
+      this.highlightLayer.getSource()?.addFeature(this.highlightFeature);
+    }
+    this.map.getView().animate({
+      center: coords,
+      zoom: 13,
+    });
+  }
+
+
+
+  renderChart(profileData: any[]) {
+    const distances = profileData.map(p => p.distance);
+    const elevations = profileData.map(p => p.elevation);
+
+    if (this.chart) {
+      this.chart.destroy();
     }
 
+    const ctx = this.elevationChartRef.nativeElement;
 
-
-    renderChart(profileData: any[]) {
-      const distances = profileData.map(p => p.distance);
-      const elevations = profileData.map(p => p.elevation);
-
-      if (this.chart) {
-        this.chart.destroy();
-      }
-
-      const ctx = this.elevationChartRef.nativeElement;
-
-      const verticalLinePlugin = {
-        id: 'verticalLine',
-        afterDraw: (chart: Chart<'line', (number | any | null)[], unknown>, _args: any, _options: any) => {
-          const tooltip = chart.tooltip as any;
-          if (tooltip && tooltip._active && tooltip._active.length) {
-            const ctx = chart.ctx;
-            ctx.save();
-            const activePoint = tooltip._active[0];
-            if (activePoint && activePoint.element) {
-              ctx.beginPath();
-              ctx.moveTo(activePoint.element.x, chart.chartArea.top);
-              ctx.lineTo(activePoint.element.x, chart.chartArea.bottom);
-              ctx.lineWidth = 1;
-              ctx.strokeStyle = '#ff0000';
-              ctx.stroke();
-              ctx.restore();
-            }
+    const verticalLinePlugin = {
+      id: 'verticalLine',
+      afterDraw: (chart: Chart<'line', (number | any | null)[], unknown>, _args: any, _options: any) => {
+        const tooltip = chart.tooltip as any;
+        if (tooltip && tooltip._active && tooltip._active.length) {
+          const ctx = chart.ctx;
+          ctx.save();
+          const activePoint = tooltip._active[0];
+          if (activePoint && activePoint.element) {
+            ctx.beginPath();
+            ctx.moveTo(activePoint.element.x, chart.chartArea.top);
+            ctx.lineTo(activePoint.element.x, chart.chartArea.bottom);
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#ff0000';
+            ctx.stroke();
+            ctx.restore();
           }
         }
+      }
+    };
+
+    this.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: distances.map(d => d.toFixed(3) + ' km'),
+        datasets: [{
+          label: 'Elevation (m)',
+          data: elevations,
+          borderColor: 'blue',
+          backgroundColor: 'lightblue',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: 'nearest',
+          intersect: false
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const index = context.dataIndex;
+                const point = profileData[index];
+                return [
+                  `Elevation: ${point.elevation} m`,
+                  `Lat: ${point.latitude.toFixed(6)}`,
+                  `Lon: ${point.longitude.toFixed(6)}`
+                ];
+              }
+            }
+          },
+          legend: { display: true }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Distance (km)' }
+          },
+          y: {
+            title: { display: true, text: 'Elevation (m)' }
+          }
+        },
+        onHover: (event, chartElement) => {
+          debugger
+          if (chartElement.length > 0) {
+            const index = chartElement[0].index;
+            const point = profileData[index];
+            this.highlightMapPoint(point.latitude, point.longitude);
+          }
+        }
+
+      },
+      plugins: [verticalLinePlugin]
+    });
+  }
+
+  reRenderDEM() {
+    if (this.demFile) {
+      this.visualizeTiff(this.demFile, this.selectedColorRamp);
+    }
+  }
+
+  ngOnInit(): void {
+    this.initMap();
+    this.slopeOptions = this.optionsService.slopeOptions;
+    this.aspectOptions = this.optionsService.aspectOptions;
+    this.flatAreaHandlingOptions = this.optionsService.flatAreaHandlingOptions;
+    this.zFactorOptions = this.optionsService.zFactorOptions;
+    this.demAnalysisTypes = this.optionsService.demAnalysisTypes;
+    this.demTypes = this.optionsService.demTypes;
+    this.slopeLegend = this.optionsService.slopeLegend;
+    this.colorRamps = this.optionsService.colorRamps;
+    this.scaleOptions = this.optionsService.scaleOptions;
+    this.lulcLegend = this.optionsService.lulcLegend;
+    this.lstLegend = this.optionsService.lstLegend;
+    this.aspectLegend = this.optionsService.aspectLegend;
+
+    this.map.addLayer(this.pointLayer);
+
+  }
+  async visualizeDemIn3d() {
+    if (!this.demFile) {
+      this.toastService.showError('No DEM file uploaded');
+      return;
+    }
+
+    try {
+      const arrayBuffer = await this.demFile.arrayBuffer();
+      const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
+      const image = await tiff.getImage();
+
+      // Get DEM bounds
+      const bbox = image.getBoundingBox();
+
+      // Read raster data
+      const rasterData = await image.readRasters();
+      const values = rasterData[0];
+
+      // Prepare DEM data for Cesium
+      const demData = {
+        values,
+        width: image.getWidth(),
+        height: image.getHeight()
       };
 
-      this.chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: distances.map(d => d.toFixed(3) + ' km'),
-          datasets: [{
-            label: 'Elevation (m)',
-            data: elevations,
-            borderColor: 'blue',
-            backgroundColor: 'lightblue',
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          interaction: {
-            mode: 'nearest',
-            intersect: false
-          },
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label: (context) => {
-                  const index = context.dataIndex;
-                  const point = profileData[index];
-                  return [
-                    `Elevation: ${point.elevation} m`,
-                    `Lat: ${point.latitude.toFixed(6)}`,
-                    `Lon: ${point.longitude.toFixed(6)}`
-                  ];
-                }
-              }
-            },
-            legend: { display: true }
-          },
-          scales: {
-            x: {
-              title: { display: true, text: 'Distance (km)' }
-            },
-            y: {
-              title: { display: true, text: 'Elevation (m)' }
-            }
-          },
-          onHover: (event, chartElement) => {
-            debugger
-            if (chartElement.length > 0) {
-              const index = chartElement[0].index;
-              const point = profileData[index];
-              this.highlightMapPoint(point.latitude, point.longitude);
-            }
-          }
-
-        },
-        plugins: [verticalLinePlugin]
+      // Add to Cesium
+      await this.cesiumService.addDemLayer(demData, {
+        name: 'Uploaded DEM',
+        bounds: {
+          west: bbox[0],
+          south: bbox[1],
+          east: bbox[2],
+          north: bbox[3]
+        }
       });
+
+      this.toastService.showSuccess('DEM displayed in 3D view');
+    } catch (error) {
+      console.error('Error displaying DEM in 3D:', error);
+      this.toastService.showError('Failed to display DEM in 3D view');
+    }
+  }
+
+  initMap() {
+    this.map = this.mapService.getMap();
+
+    this.vectorLayer = new VectorLayer({
+      source: this.vectorSource,
+      style: new Style({
+        stroke: new Stroke({
+          color: '#f00',
+          width: 2,
+        }),
+        fill: new Fill({
+          color: 'rgba(255,0,0,0.2)',
+        }),
+      }),
+    });
+
+    this.map.addLayer(this.vectorLayer);
+  }
+  startDraw() {
+    this.initMap();
+    this.addDrawInteraction();
+    this.map.updateSize();
+  }
+  addDrawInteraction() {
+    if (!this.map) {
+      console.error('Map not initialized yet');
+      return;
     }
 
-    reRenderDEM() {
-      if (this.demFile) {
-        this.visualizeTiff(this.demFile, this.selectedColorRamp);
-      }
+    if (this.draw) {
+      this.map.removeInteraction(this.draw);
     }
 
-    ngOnInit(): void {
-      this.initMap();
-      this.slopeOptions = this.optionsService.slopeOptions;
-      this.aspectOptions = this.optionsService.aspectOptions;
-      this.flatAreaHandlingOptions = this.optionsService.flatAreaHandlingOptions;
-      this.zFactorOptions = this.optionsService.zFactorOptions;
-      this.demAnalysisTypes = this.optionsService.demAnalysisTypes;
-      this.demTypes = this.optionsService.demTypes;
-      this.slopeLegend = this.optionsService.slopeLegend;
-      this.colorRamps = this.optionsService.colorRamps;
-      this.scaleOptions = this.optionsService.scaleOptions;
-      this.map.addLayer(this.pointLayer);
+    this.vectorSource.clear();
 
-    }
-  async visualizeDemIn3d() {
-      if (!this.demFile) {
-        this.toastService.showError('No DEM file uploaded');
-        return;
-      }
+    this.draw = new Draw({
+      source: this.vectorSource,
+      type: 'Circle',
+      geometryFunction: createBox(),
+      style: new Style({
+        stroke: new Stroke({ color: '#f00', width: 2 }),
+        fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
+      }),
+    });
 
-      try {
-        const arrayBuffer = await this.demFile.arrayBuffer();
-        const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
-        const image = await tiff.getImage();
+    this.draw.on('drawstart', () => {
+      this.vectorSource.clear();
+    });
 
-        // Get DEM bounds
-        const bbox = image.getBoundingBox();
+    this.draw.on('drawend', (event) => {
+      const geometry = event.feature.getGeometry();
+      if (geometry instanceof Polygon) {
+        const coordinates = geometry.getCoordinates()[0];
+        const lonLatCoords = coordinates.map(coord => toLonLat(coord));
+        const lons = lonLatCoords.map(c => c[0]);
+        const lats = lonLatCoords.map(c => c[1]);
 
-        // Read raster data
-        const rasterData = await image.readRasters();
-        const values = rasterData[0];
+        // Store bbox
+        this.bbox = [
+          Math.min(...lons),
+          Math.min(...lats),
+          Math.max(...lons),
+          Math.max(...lats)
+        ];
 
-        // Prepare DEM data for Cesium
-        const demData = {
-          values,
-          width: image.getWidth(),
-          height: image.getHeight()
+        // Update extent inputs
+        this.extent = {
+          west: this.bbox[0],
+          south: this.bbox[1],
+          east: this.bbox[2],
+          north: this.bbox[3]
         };
 
-        // Add to Cesium
-        await this.cesiumService.addDemLayer(demData, {
-          name: 'Uploaded DEM',
-          bounds: {
-            west: bbox[0],
-            south: bbox[1],
-            east: bbox[2],
-            north: bbox[3]
-          }
-        });
-
-        this.toastService.showSuccess('DEM displayed in 3D view');
-      } catch (error) {
-        console.error('Error displaying DEM in 3D:', error);
-        this.toastService.showError('Failed to display DEM in 3D view');
+        console.log('Selected bounding box:', this.bbox);
       }
+      this.map.removeInteraction(this.draw);
+    });
+
+    this.map.addInteraction(this.draw);
+  }
+  drawRectangleFromExtent() {
+    if (!this.map || !this.vectorSource) return;
+
+    const { west, east, south, north } = this.extent;
+    if (west == null || east == null || south == null || north == null) {
+      console.warn("Extent values missing");
+      return;
     }
 
-    initMap() {
-      this.map = this.mapService.getMap();
+    // Clear previous shapes
+    this.vectorSource.clear();
 
-      this.vectorLayer = new VectorLayer({
-        source: this.vectorSource,
-        style: new Style({
-          stroke: new Stroke({
-            color: '#f00',
-            width: 2,
-          }),
-          fill: new Fill({
-            color: 'rgba(255,0,0,0.2)',
-          }),
-        }),
-      });
+    // Create rectangle geometry
+    const coords = [
+      [west, south],
+      [west, north],
+      [east, north],
+      [east, south],
+      [west, south] // Close polygon
+    ].map(coord => fromLonLat(coord));
 
-      this.map.addLayer(this.vectorLayer);
+    const polygon = new Polygon([coords]);
+
+    // Add to vector source
+    const feature = new Feature(polygon);
+    feature.setStyle(new Style({
+      stroke: new Stroke({ color: '#f00', width: 2 }),
+      fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
+    }));
+
+    this.vectorSource.addFeature(feature);
+
+    // Zoom to rectangle
+    this.map.getView().fit(polygon, { padding: [20, 20, 20, 20] });
+  }
+  drawRectangleFromDirectExtent() {
+    if (!this.map || !this.vectorSource) return;
+
+    if (!this._extent || typeof this._extent !== 'string') return;
+
+    // Parse the comma-separated string
+    const parts = this._extent.split(',').map(v => parseFloat(v.trim()));
+
+    if (parts.length !== 4 || parts.some(isNaN)) {
+      console.warn("Invalid extent format. Expected: south,west,north,east");
+      return;
     }
-    startDraw() {
-      this.initMap();
-      this.addDrawInteraction();
-      this.map.updateSize();
-    }
-    addDrawInteraction() {
-      if (!this.map) {
-        console.error('Map not initialized yet');
-        return;
-      }
 
-      if (this.draw) {
-        this.map.removeInteraction(this.draw);
-      }
+    const [south, west, north, east] = parts; // Adjust order if needed
 
-      this.vectorSource.clear();
+    // Clear previous shapes
+    this.vectorSource.clear();
 
-      this.draw = new Draw({
-        source: this.vectorSource,
-        type: 'Circle',
-        geometryFunction: createBox(),
-        style: new Style({
-          stroke: new Stroke({ color: '#f00', width: 2 }),
-          fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
-        }),
-      });
+    // Create rectangle geometry
+    const coords = [
+      [west, south],
+      [west, north],
+      [east, north],
+      [east, south],
+      [west, south]
+    ].map(coord => fromLonLat(coord));
 
-      this.draw.on('drawstart', () => {
-        this.vectorSource.clear();
-      });
+    const polygon = new Polygon([coords]);
+    const feature = new Feature(polygon);
 
-      this.draw.on('drawend', (event) => {
-        const geometry = event.feature.getGeometry();
-        if (geometry instanceof Polygon) {
-          const coordinates = geometry.getCoordinates()[0];
-          const lonLatCoords = coordinates.map(coord => toLonLat(coord));
-          const lons = lonLatCoords.map(c => c[0]);
-          const lats = lonLatCoords.map(c => c[1]);
+    feature.setStyle(new Style({
+      stroke: new Stroke({ color: '#f00', width: 2 }),
+      fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
+    }));
 
-          // Store bbox
-          this.bbox = [
-            Math.min(...lons),
-            Math.min(...lats),
-            Math.max(...lons),
-            Math.max(...lats)
-          ];
-
-          // Update extent inputs
-          this.extent = {
-            west: this.bbox[0],
-            south: this.bbox[1],
-            east: this.bbox[2],
-            north: this.bbox[3]
-          };
-
-          console.log('Selected bounding box:', this.bbox);
-        }
-        this.map.removeInteraction(this.draw);
-      });
-
-      this.map.addInteraction(this.draw);
-    }
-    drawRectangleFromExtent() {
-      if (!this.map || !this.vectorSource) return;
-
-      const { west, east, south, north } = this.extent;
-      if (west == null || east == null || south == null || north == null) {
-        console.warn("Extent values missing");
-        return;
-      }
-
-      // Clear previous shapes
-      this.vectorSource.clear();
-
-      // Create rectangle geometry
-      const coords = [
-        [west, south],
-        [west, north],
-        [east, north],
-        [east, south],
-        [west, south] // Close polygon
-      ].map(coord => fromLonLat(coord));
-
-      const polygon = new Polygon([coords]);
-
-      // Add to vector source
-      const feature = new Feature(polygon);
-      feature.setStyle(new Style({
-        stroke: new Stroke({ color: '#f00', width: 2 }),
-        fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
-      }));
-
-      this.vectorSource.addFeature(feature);
-
-      // Zoom to rectangle
-      this.map.getView().fit(polygon, { padding: [20, 20, 20, 20] });
-    }
-    drawRectangleFromDirectExtent() {
-      if (!this.map || !this.vectorSource) return;
-
-      if (!this._extent || typeof this._extent !== 'string') return;
-
-      // Parse the comma-separated string
-      const parts = this._extent.split(',').map(v => parseFloat(v.trim()));
-
-      if (parts.length !== 4 || parts.some(isNaN)) {
-        console.warn("Invalid extent format. Expected: south,west,north,east");
-        return;
-      }
-
-      const [south, west, north, east] = parts; // Adjust order if needed
-
-      // Clear previous shapes
-      this.vectorSource.clear();
-
-      // Create rectangle geometry
-      const coords = [
-        [west, south],
-        [west, north],
-        [east, north],
-        [east, south],
-        [west, south]
-      ].map(coord => fromLonLat(coord));
-
-      const polygon = new Polygon([coords]);
-      const feature = new Feature(polygon);
-
-      feature.setStyle(new Style({
-        stroke: new Stroke({ color: '#f00', width: 2 }),
-        fill: new Fill({ color: 'rgba(255,0,0,0.2)' }),
-      }));
-
-      this.vectorSource.addFeature(feature);
-      this.map.getView().fit(polygon, { padding: [20, 20, 20, 20] });
-    }
+    this.vectorSource.addFeature(feature);
+    this.map.getView().fit(polygon, { padding: [20, 20, 20, 20] });
+  }
   async onDemFileUpload(event: any) {
-      const file = event.files[0];
-      if (!file) return;
-      this.demFile = file;
-      console.log('DEM file uploaded:', file.name);
-      try {
-        await this.visualizeTiff(file, this.selectedColorRamp);
-        //this.visualizeDemIn3d();
-        this.toastService.showSuccess('DEM visualized successfully!');
-      } catch (error) {
-        console.error('Error visualizing uploaded DEM:', error);
-        this.toastService.showError('Failed to visualize uploaded DEM.');
-      }
+    const file = event.files[0];
+    if (!file) return;
+    this.demFile = file;
+    console.log('DEM file uploaded:', file.name);
+    try {
+      await this.visualizeTiff(file, this.selectedColorRamp);
+      //this.visualizeDemIn3d();
+      this.toastService.showSuccess('DEM visualized successfully!');
+    } catch (error) {
+      console.error('Error visualizing uploaded DEM:', error);
+      this.toastService.showError('Failed to visualize uploaded DEM.');
     }
+  }
   async downloadOpenTopographyDem() {
-      if (!this.bbox) {
-        alert('Draw a rectangle on the map to select area.');
-        return;
-      }
-      if (!this.selectedDemType) {
-        alert('Select a DEM type before downloading.');
-        return;
-      }
-
-      try {
-        const blob = await this.rasterService.downloadDemTile(this.bbox, this.selectedDemType).toPromise();
-
-        if (!blob) throw new Error('No data returned from download service');
-
-        saveAs(blob, `dem_tile_${this.selectedDemType}.tif`);
-        await this.visualizeTiff(blob, 'dem');
-
-        this.toastService.showSuccess('DEM tile downloaded and displayed!');
-      } catch (err) {
-        console.error('Error downloading DEM:', err);
-        this.toastService.showError('Failed to download DEM tile.');
-      }
+    if (!this.bbox) {
+      alert('Draw a rectangle on the map to select area.');
+      return;
     }
+    if (!this.selectedDemType) {
+      alert('Select a DEM type before downloading.');
+      return;
+    }
+
+    try {
+      const blob = await this.rasterService.downloadDemTile(this.bbox, this.selectedDemType).toPromise();
+
+      if (!blob) throw new Error('No data returned from download service');
+
+      saveAs(blob, `dem_tile_${this.selectedDemType}.tif`);
+      await this.visualizeTiff(blob, 'dem');
+
+      this.toastService.showSuccess('DEM tile downloaded and displayed!');
+    } catch (err) {
+      console.error('Error downloading DEM:', err);
+      this.toastService.showError('Failed to download DEM tile.');
+    }
+  }
   private async visualizeTiff(input: File | Blob, style: string): Promise<void> {
     try {
       const now = new Date();
@@ -1071,7 +1094,7 @@ export class RasterAnalysisComponent implements OnInit {
   }
   private async visualizeTiffLulc(input: File | Blob, style: string): Promise<void> {
     try {
-    const now = new Date();
+      const now = new Date();
       const formattedDateTime = now.toISOString().replace(/[:.]/g, '-');
       // e.g. "2025-08-19T07-40-30-123Z"
 
@@ -1178,7 +1201,7 @@ export class RasterAnalysisComponent implements OnInit {
 
       this.map.addLayer(imageLayer);
       this.map.getView().fit(extent3857, { padding: [50, 50, 50, 50] });
-        this.mapService.addRasterLayer(style, {
+      this.mapService.addRasterLayer(style, {
         name: layerNm,
         visible: true,
         layer: imageLayer,

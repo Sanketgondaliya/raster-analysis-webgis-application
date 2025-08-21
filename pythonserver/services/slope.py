@@ -2,7 +2,7 @@ from osgeo import gdal
 import os
 
 def slope_service(dem_path, slope_format="degree", scale=1.0, compute_edges=True):
-    """Generate slope map from DEM file"""
+    """Generate slope map from DEM file using GDAL DEMProcessing"""
     gdal.AllRegister()
 
     if not os.path.exists(dem_path):

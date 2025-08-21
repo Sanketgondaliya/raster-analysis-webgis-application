@@ -79,14 +79,14 @@ async def hillshade(
     altitude: float = Form(45.0),
     scale: float = Form(1.0)
 ):
-    """Hillshade calculation endpoint with JSON + base64 output"""
+    """Hillshade calculation endpoint with JSON + base64 output + stats"""
     try:
-        # Save uploaded file to disk
+        # Save uploaded DEM to disk
         temp_dem_path = os.path.join(UPLOAD_FOLDER, file.filename)
         with open(temp_dem_path, "wb") as buffer:
             buffer.write(await file.read())
 
-        # Run service
+        # Run hillshade service
         response, status = hillshade_service(
             temp_dem_path, z_factor, azimuth, altitude, scale
         )
@@ -95,6 +95,9 @@ async def hillshade(
             raise HTTPException(status_code=status, detail=response.get("error"))
 
         hillshade_path = response["hillshade_path"]
+
+        # Compute statistics + histogram
+        stats, histogram = compute_hillshade_stats(hillshade_path)
 
         # Encode file to base64
         with open(hillshade_path, "rb") as hf:
@@ -109,12 +112,15 @@ async def hillshade(
                 "scale": scale
             },
             "filename": os.path.basename(hillshade_path),
-            "file_base64": file_b64
+            "file_base64": file_b64,
+            "stats": stats,
+            "histogram": histogram
         })
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
+    
 @app.post("/aspect")
 async def aspect(file: UploadFile = File(...)):
     """Aspect calculation endpoint"""
@@ -154,7 +160,7 @@ async def slope(
     z_factor: float = Form(1.0)
 ):
     try:
-        # Save uploaded file
+        # Save uploaded DEM
         file_path = os.path.join(UPLOAD_FOLDER, file.filename)
         with open(file_path, "wb") as f:
             f.write(await file.read())
@@ -166,20 +172,58 @@ async def slope(
 
         slope_path = response["slope_path"]
 
-        # Encode output TIFF to base64
+        # ---- Open slope raster for stats + classification ----
+        with rasterio.open(slope_path) as src:
+            slope_data = src.read(1, masked=True).astype(float)
+
+        # Statistics
+        stats = {
+            "min": float(np.nanmin(slope_data)),
+            "max": float(np.nanmax(slope_data)),
+            "mean": float(np.nanmean(slope_data))
+        }
+
+        # Classification ranges
+        classes = [
+            {"label": "Flat (0-2°)", "range": (0, 2), "color": "#00ff00"},
+            {"label": "Gentle (2-6°)", "range": (2, 6), "color": "#a8ff00"},
+            {"label": "Moderate (6-15°)", "range": (6, 15), "color": "#ffff00"},
+            {"label": "Steep (15-30°)", "range": (15, 30), "color": "#ff7f00"},
+            {"label": "Very Steep (>30°)", "range": (30, 9999), "color": "#ff0000"},
+        ]
+
+        class_stats = []
+        total_pixels = slope_data.count()
+
+        for cls in classes:
+            mask = (slope_data >= cls["range"][0]) & (slope_data < cls["range"][1])
+            count = int(mask.sum())
+            class_stats.append({
+                "label": cls["label"],
+                "count": count,
+                "percent": round((count / total_pixels) * 100, 2),
+                "color": cls["color"]
+            })
+
+        # Encode slope raster to Base64
         with open(slope_path, "rb") as sf:
             file_b64 = base64.b64encode(sf.read()).decode("utf-8")
 
         return JSONResponse(content={
             "success": True,
-            "parameters": response["parameters"],
+            "parameters": {
+                "slope_format": slope_type,
+                "scale": z_factor,
+                "stats": stats,
+                "classification": class_stats
+            },
             "filename": os.path.basename(slope_path),
             "file_base64": file_b64
         })
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 
 @app.post("/tpi")
 async def tpi_endpoint(

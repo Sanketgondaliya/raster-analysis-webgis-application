@@ -1,5 +1,5 @@
 from .countour import generate_contours
-from .hillshade import hillshade_service
+from .hillshade import hillshade_service, compute_hillshade_stats
 from .aspect import aspect_service
 from .slope import slope_service
 from .watershed import watershed_service
@@ -17,6 +17,7 @@ __all__ = [
     'generate_contours',
     'hillshade_service',
     'aspect_service',
+    'compute_hillshade_stats',
     'slope_service',
     'watershed_service',
     'curvature_service',

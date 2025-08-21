@@ -1,5 +1,7 @@
 import os
+import numpy as np
 from osgeo import gdal
+
 
 def hillshade_service(dem_path, z_factor=1.0, azimuth=315, altitude=45, scale=1.0):
     """Generate hillshade from an existing DEM file."""
@@ -41,3 +43,26 @@ def hillshade_service(dem_path, z_factor=1.0, azimuth=315, altitude=45, scale=1.
 
     except Exception as e:
         return {"error": f"Processing failed: {str(e)}"}, 500
+
+
+
+def compute_hillshade_stats(hillshade_path):
+    """Compute min, max, mean + histogram for hillshade raster"""
+    ds = gdal.Open(hillshade_path)
+    band = ds.GetRasterBand(1)
+    arr = band.ReadAsArray().astype(np.uint8)
+
+    # Basic statistics
+    min_val = int(np.min(arr))
+    max_val = int(np.max(arr))
+    mean_val = float(np.mean(arr))
+
+    # Histogram (0–255 bins)
+    hist, _ = np.histogram(arr, bins=256, range=(0, 255))
+    histogram = hist.tolist()
+
+    return {
+        "min": min_val,
+        "max": max_val,
+        "mean": round(mean_val, 2)
+    }, histogram

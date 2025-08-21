@@ -166,6 +166,7 @@ export class RasterGlobalMethodService {
         return [gray, gray, gray];
     }
   }
+  
   applyLULCColor(value: number): [number, number, number] {
     switch (value) {
       case 10: return [0, 100, 0];       // Tree cover
