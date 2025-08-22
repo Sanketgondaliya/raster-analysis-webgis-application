@@ -323,19 +323,35 @@ export class RasterGlobalMethodService {
     const url = `${this.baseUrl}/download_lst`;
     return this.http.post(url, payload, { responseType: 'blob' });
   }
-  fetchLULC(bbox: number[]): Observable<Blob> {
-    const payload = {
-      bbox: bbox
-    };
-    const url = `${this.baseUrl}/download_lulc`;
-    return this.http.post(url, payload, { responseType: 'blob' });
+
+
+// ✅ Fetch LULC Raster
+fetchLULC(shapefileZip?: File, bbox?: string): Observable<Blob> {
+  const formData = new FormData();
+
+  if (shapefileZip) {
+    formData.append('zip_file', shapefileZip, shapefileZip.name);
+  } else if (bbox) {
+    formData.append('bbox', bbox);
   }
-  fetchLULCStatatics(bbox: number[]): Observable<any> {
-    const payload = {
-      bbox: bbox,
-      scale:100
-    };
-    const url = `${this.baseUrl}/lulc_statistics`;
-    return this.http.post(url, payload, { responseType: 'json' });
+
+  const url = `${this.baseUrl}/download_lulc`;
+  return this.http.post(url, formData, { responseType: 'blob' });
+}
+
+// ✅ Fetch LULC Statistics
+fetchLULCStatistics(shapefileZip?: File, bbox?: string, scale: number = 100): Observable<any> {
+  const formData = new FormData();
+
+  if (shapefileZip) {
+    formData.append('zip_file', shapefileZip, shapefileZip.name);
+  } else if (bbox) {
+    formData.append('bbox', bbox);
   }
+
+  formData.append('scale', scale.toString());
+
+  const url = `${this.baseUrl}/lulc_statistics`;
+  return this.http.post(url, formData, { responseType: 'json' });
+}
 }

@@ -13,11 +13,14 @@ import numpy as np
 import rasterio 
 from rasterio.transform import from_bounds
 import tempfile
-
+import shutil
 import ee
 from pydantic import BaseModel, Field
-
 from EVALSCRIPTS import EVALSCRIPTS
+import logging
+
+
+
 CLIENT_ID = "97fac815-7c69-4ff0-8e3b-5c5cc64c0560"
 CLIENT_SECRET = "yqu49iTT8gfXf9hx3FvLRFrAiObUIvR4"
 
@@ -48,9 +51,15 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 
+# Logging setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 # Local folder to save results permanently
 LOCAL_SAVE_DIR = "saved_tiffs"
 os.makedirs(LOCAL_SAVE_DIR, exist_ok=True)
+
 
 
 @app.post("/contours")
@@ -656,68 +665,132 @@ def download_lst(request: LSTRequest):
 
 lulc_downloader = LULCDataDownloader()
 
-# --- Request model for LULC ---
-class LULCRequest(BaseModel):
-    bbox: List[float] = Field(..., description="[minx,miny,maxx,maxy]")
-    scale: int = 100
+
 
 @app.post("/download_lulc")
-def download_lulc(request: LULCRequest):
-    """
-    Download Land Use Land Cover (LULC) data for a bounding box.
-    Returns the TIFF file directly.
-    """
+async def download_lulc(
+    bbox: str = Form(None, description="bbox as minX,minY,maxX,maxY"),
+    zip_file: UploadFile = File(None, description="Shapefile ZIP"),
+):
     try:
-        if not isinstance(request.bbox, list) or len(request.bbox) != 4:
-            raise ValueError("bbox must be [minx,miny,maxx,maxy]")
+        # Initialize Earth Engine
+        LULCDataDownloader.initialize_earth_engine()
+        
+        region = None
+        shp_path = None
+        bbox_coords = None
 
-        coords = [float(c) for c in request.bbox]
-        region = ee.Geometry.Rectangle(coords)
+        # Option 1: bbox
+        if bbox:
+            bbox_coords = [float(x) for x in bbox.split(",")]
+            if len(bbox_coords) != 4:
+                return {"error": "bbox must be minX,minY,maxX,maxY"}
+            region = ee.Geometry.Rectangle(bbox_coords)
 
-        # Call single download
-        tiff_path = lulc_downloader.download_lulc_single(
-            region=region,
-            scale=request.scale
-        )
+        # Option 2: shapefile
+        elif zip_file:
+            # Save uploaded file temporarily
+            tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+            with open(tmp_zip.name, "wb") as f:
+                shutil.copyfileobj(zip_file.file, f)
+            region, shp_path = unzip_and_read_shapefile_ee(tmp_zip.name)
+        else:
+            return {"error": "Provide either bbox or shapefile ZIP"}
 
+        # Step 1: Download clipped LULC from EE
+        tiff_path = LULCDataDownloader.download_lulc_single(region=region)
+        folder="LULC_data"
+        os.makedirs(folder, exist_ok=True)
+        # Step 2: Create output path
+        output_tiff = os.path.join(folder, "LULC_clipped.tif")
+        
+        # Step 3: Clip using GDAL (if shapefile provided for precise clipping)
+        if shp_path:
+            clip_raster_gdal(tiff_path, output_tiff, shapefile=shp_path)
+        else:
+            # For bbox, we already got the clipped image from EE
+            # Just copy the file or do minimal processing
+            shutil.copy2(tiff_path, output_tiff)
+
+        # Clean up temporary files
+        try:
+            if os.path.exists(tiff_path):
+                os.remove(tiff_path)
+        except:
+            pass
+
+        # Step 4: Return clipped file
         return FileResponse(
-            path=tiff_path,
-            filename=os.path.basename(tiff_path),
-            media_type="image/tiff",
+            path=output_tiff,
+            filename="LULC_clipped.tif",
+            media_type="image/tiff"
         )
 
     except Exception as e:
-        print("DEBUG ERROR:\n", traceback.format_exc())
+        import traceback
+        logger.error(f"DEBUG ERROR:\n{traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
-    
+
+
 @app.post("/lulc_statistics")
-def lulc_statistics(request: LULCRequest):
-    """
-    Returns JSON statistics (Class Area + Percentage Distribution) only.
-    """
+async def lulc_statistics(
+    bbox: str = Form(None, description="bbox as minX,minY,maxX,maxY"),
+    scale: int = Form(100),
+    zip_file: UploadFile = File(None, description="Shapefile ZIP"),
+):
     try:
-        if not isinstance(request.bbox, list) or len(request.bbox) != 4:
-            raise ValueError("bbox must be [minx,miny,maxx,maxy]")
+        # Initialize Earth Engine (same as download_lulc)
+        LULCDataDownloader.initialize_earth_engine()
+        
+        region = None
+        shp_path = None
+        bbox_coords = None
 
-        coords = [float(c) for c in request.bbox]
-        region = ee.Geometry.Rectangle(coords)
+        # Option 1: bbox (same logic as download_lulc)
+        if bbox:
+            bbox_coords = [float(x) for x in bbox.split(",")]
+            if len(bbox_coords) != 4:
+                return {"error": "bbox must be minX,minY,maxX,maxY"}
+            region = ee.Geometry.Rectangle(bbox_coords)
 
-        # Download single TIFF
-        tiff_path = lulc_downloader.download_lulc_single(
-            region=region,
-            scale=request.scale
-        )
+        # Option 2: shapefile (same logic as download_lulc)
+        elif zip_file:
+            # Save uploaded file temporarily
+            tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+            with open(tmp_zip.name, "wb") as f:
+                shutil.copyfileobj(zip_file.file, f)
+            region, shp_path = unzip_and_read_shapefile_ee(tmp_zip.name)  # Use the EE version
+        else:
+            return {"error": "Provide either bbox or shapefile ZIP"}
 
-        # Read TIFF and calculate statistics
-        with rasterio.open(tiff_path) as src:
+        # Step 1: Download clipped LULC from EE (same as download_lulc)
+        tiff_path = LULCDataDownloader.download_lulc_single(region=region)
+    
+        
+        # Step 2: Create output path
+        output_tiff = os.path.join(tempfile.gettempdir(), "LULC_clipped.tif")
+        
+        # Step 3: Clip using GDAL (if shapefile provided for precise clipping)
+        if shp_path:
+            clip_raster_gdal(tiff_path, output_tiff, shapefile=shp_path)
+        else:
+            # For bbox, we already got the clipped image from EE
+            shutil.copy2(tiff_path, output_tiff)
+
+        # Clean up temporary files (same as download_lulc)
+        try:
+            if os.path.exists(tiff_path):
+                os.remove(tiff_path)
+        except:
+            pass
+
+        # Read TIFF & compute stats (your original statistics logic)
+        with rasterio.open(output_tiff) as src:
             data = src.read(1)
             total_pixels = data.size
-
-            # Correct pixel area in km²
-            pixel_area_m2 = request.scale * request.scale
+            pixel_area_m2 = scale * scale
             pixel_area_km2 = pixel_area_m2 / 1e6
 
-            # LULC class mapping
             LULC_CLASSES = {
                 10: "Tree cover",
                 20: "Shrubland",
@@ -736,21 +809,26 @@ def lulc_statistics(request: LULCRequest):
         stats = []
         for val, cnt in zip(unique, counts):
             if val in LULC_CLASSES:
-                area_km2 = cnt * pixel_area_km2
-                percentage = (cnt / total_pixels) * 100
                 stats.append({
                     "class_id": int(val),
                     "class_name": LULC_CLASSES[val],
                     "pixel_count": int(cnt),
-                    "area_km2": round(area_km2, 2),
-                    "percentage": round(percentage, 2)
+                    "area_km2": round(cnt * pixel_area_km2, 2),
+                    "percentage": round((cnt / total_pixels) * 100, 2)
                 })
+
+        # Additional cleanup: remove the output TIFF after processing
+        try:
+            if os.path.exists(output_tiff):
+                os.remove(output_tiff)
+        except:
+            pass
 
         return JSONResponse(content={"lulc_statistics": stats})
 
     except Exception as e:
         import traceback
-        print("DEBUG ERROR:\n", traceback.format_exc())
+        logger.error(f"DEBUG ERROR:\n{traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ from .elevation_profile import elevation_profile_service
 from .elevation_point import elevation_point_service
 from .lst import LSTDataDownloader
 from .lulc import LULCDataDownloader
-from .unzip_and_read_shapefile import unzip_and_read_shapefile
+from .unzip_and_read_shapefile import unzip_and_read_shapefile, unzip_and_read_shapefile_ee, clip_raster_gdal
 
 __all__ = [
     'generate_contours',
@@ -30,5 +30,7 @@ __all__ = [
     'elevation_point_service',
     'LSTDataDownloader',
     'LULCDataDownloader',
-    'unzip_and_read_shapefile'
+    'unzip_and_read_shapefile',
+    'unzip_and_read_shapefile_ee',
+    'clip_raster_gdal'
 ]

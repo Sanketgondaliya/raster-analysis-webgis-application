@@ -95,6 +95,7 @@ export class RasterAnalysisComponent implements OnInit {
   slopeChartData: any;
   slopeChartOptions: any;
   aspectlegendshow: boolean = false;
+  lulclegendshow: boolean = false;
   shapefileZip: File | null = null;
 
   hillshadeStats: { min: number; max: number; mean: number } | null = null;
@@ -103,6 +104,8 @@ export class RasterAnalysisComponent implements OnInit {
   // In your component or service class
   lstStartDate: Date = new Date('2024-01-01');
   lstEndDate: Date = new Date('2025-01-01');
+  lulcChartInstance: any;
+  lulcAreaChartInstance: any;
 
 
 
@@ -118,6 +121,7 @@ export class RasterAnalysisComponent implements OnInit {
       this.shapefileZip = null;
     }
   }
+
   showSlopeChart(stats: any, classification: any[]) {
     const ctx = document.getElementById('chartCanvas-slope-legend') as HTMLCanvasElement;
     debugger
@@ -221,28 +225,52 @@ export class RasterAnalysisComponent implements OnInit {
         }
       });
   }
+
+  //   submitLULC() {
+  //   this.rasterGlobalMethodService.fetchLULC(this.bbox)
+  //     .subscribe({
+  //       next: (blob) => {
+  //         this.visualizeTiffLulc(blob, 'lulc');
+  //         this.getLulcStat(this.bbox); // fetch statistics and show chart
+  //         this.lulclegendshow = true;
+  //       },
+  //       error: (err) => {
+  //         console.error('Failed to fetch LULC raster:', err);
+  //         alert('❌ Failed to fetch LULC raster. No data found for the selected range/region.');
+  //       }
+  //     });
+  // }
+
+
   submitLULC() {
-    this.rasterGlobalMethodService.fetchLULC(this.bbox)
-      .subscribe({
-        next: (blob) => {
-          this.visualizeTiffLulc(blob, 'lulc');
-          this.getLulcStat(this.bbox); // fetch statistics and show chart
-        },
-        error: (err) => {
-          console.error('Failed to fetch LULC raster:', err);
-          alert('❌ Failed to fetch LULC raster. No data found for the selected range/region.');
-        }
-      });
+    if (!this.shapefileZip && !this.bbox) {
+      alert('Please provide either bbox or shapefile!');
+      return;
+    }
+
+    this.rasterGlobalMethodService.fetchLULC(
+      this.shapefileZip ?? undefined,
+      this.bbox?.toString()
+    ).subscribe({
+      next: (blob) => {
+        this.visualizeTiffLulc(blob, 'lulc');
+        this.getLulcStat(this.shapefileZip ?? undefined, this.bbox); // ✅ pass both properly
+        this.lulclegendshow = true;
+      },
+      error: (err) => {
+        console.error('Failed to fetch LULC raster:', err);
+        alert('❌ Failed to fetch LULC raster. No data found for the selected range/region.');
+      }
+    });
   }
 
-
-  getLulcStat(bbox: any) {
-    this.rasterGlobalMethodService.fetchLULCStatatics(bbox)
+  getLulcStat(shapefileZip?: File, bbox?: string) {
+    this.rasterGlobalMethodService.fetchLULCStatistics(shapefileZip, bbox)
       .subscribe({
         next: (data: any) => {
-          // Assuming `data` is JSON with `lulc_statistics`
           this.lulcStatistics = data.lulc_statistics;
-          this.showLULCChart(); // Show chart after fetching stats
+          this.showLULCChart();
+          this.showLUCAreaChart();
         },
         error: (err) => {
           console.error('Failed to fetch LULC stats:', err);
@@ -250,32 +278,46 @@ export class RasterAnalysisComponent implements OnInit {
         }
       });
   }
-
-
-
   showLULCChart() {
-    const labels = this.lulcStatistics.map((x: { class_name: any; }) => x.class_name);
-    const data = this.lulcStatistics.map((x: { percentage: any; }) => x.percentage);
+    // Destroy old chart if it exists
+    if (this.lulcChartInstance) {
+      this.lulcChartInstance.destroy();
+    }
 
-    new Chart('lulcChart', {
+    const lulcColors: Record<string, string> = {
+      'Tree cover': '#006400',
+      'Shrubland': '#ffbb22',
+      'Grassland': '#ffff4c',
+      'Cropland': '#f096ff',
+      'Built-up': '#fa0000',
+      'Bare / sparse vegetation': '#b4b4b4',
+      'Snow and ice': '#f0f0f0',
+      'Permanent water bodies': '#0064c8',
+      'Herbaceous wetland': '#0096a0',
+      'Mangroves': '#00cf75',
+      'Moss and lichen': '#fae6a0'
+    };
+
+    const labels = this.lulcStatistics.map((x: { class_name: any }) => x.class_name);
+    const data = this.lulcStatistics.map((x: { percentage: any }) => x.percentage);
+    const backgroundColors = this.lulcStatistics.map(
+      (x: { class_name: string }) => lulcColors[x.class_name] || '#cccccc'
+    );
+
+    this.lulcChartInstance = new Chart('lulcChart', {
       type: 'bar',
       data: {
         labels: labels,
         datasets: [{
           label: 'LULC Percentage (%)',
           data: data,
-          backgroundColor: [
-            '#006400', '#228B22', '#7CFC00', '#FFFF00',
-            '#FF4500', '#D2B48C', '#1E90FF', '#00CED1', '#2E8B57'
-          ]
+          backgroundColor: backgroundColors
         }]
       },
       options: {
         responsive: true,
         plugins: {
-          legend: {
-            display: false
-          },
+          legend: { display: false },
           tooltip: {
             callbacks: {
               label: (context) => `${context.label}: ${context.raw}%`
@@ -285,16 +327,68 @@ export class RasterAnalysisComponent implements OnInit {
         scales: {
           y: {
             beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Percentage (%)'
-            }
+            title: { display: true, text: 'Percentage (%)' }
           }
         }
       }
     });
   }
 
+  showLUCAreaChart() {
+    // Destroy old chart if it exists
+    if (this.lulcAreaChartInstance) {
+      this.lulcAreaChartInstance.destroy();
+    }
+
+    const lulcColors: Record<string, string> = {
+      'Tree cover': '#006400',
+      'Shrubland': '#ffbb22',
+      'Grassland': '#ffff4c',
+      'Cropland': '#f096ff',
+      'Built-up': '#fa0000',
+      'Bare / sparse vegetation': '#b4b4b4',
+      'Snow and ice': '#f0f0f0',
+      'Permanent water bodies': '#0064c8',
+      'Herbaceous wetland': '#0096a0',
+      'Mangroves': '#00cf75',
+      'Moss and lichen': '#fae6a0'
+    };
+
+    const labels = this.lulcStatistics.map((x: { class_name: string }) => x.class_name);
+    const data = this.lulcStatistics.map((x: { area_km2: number }) => x.area_km2);
+    const backgroundColors = this.lulcStatistics.map(
+      (x: { class_name: string }) => lulcColors[x.class_name] || '#cccccc'
+    );
+
+    this.lulcAreaChartInstance = new Chart('lulcAreaChart', {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'LULC Area (km²)',
+          data: data,
+          backgroundColor: backgroundColors
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.label}: ${context.raw} km²`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Area (km²)' }
+          }
+        }
+      }
+    });
+  }
 
   extent: Extent = {
     west: null,
@@ -397,11 +491,6 @@ export class RasterAnalysisComponent implements OnInit {
     }
   }
 
-
-
-
-
-
   onSlopeSubmit() {
     if (this.slopeForm?.valid && this.selectedFile) {
       const { slopeType, zFactor } = this.slopeForm.value;
@@ -447,13 +536,6 @@ export class RasterAnalysisComponent implements OnInit {
       this.aspectlegendshow = false;
     }
   }
-
-
-
-
-
-
-
 
   onHillshadeSubmit() {
     if (this.hillshadeForm?.valid && this.selectedFile) {

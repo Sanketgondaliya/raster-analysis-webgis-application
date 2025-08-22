@@ -636,7 +636,43 @@
               <div class="p-mb-3">
                 <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
               </div>
-              <div class="p-mt-3">
+
+              
+              <!-- Upload Shapefile Boundary -->
+              <div class="col-12">
+                <div class="field">
+                  <label for="shapefile" class="block mb-2 font-semibold">Upload Shapefile (.zip)</label>
+
+                  <div class="flex items-center gap-2">
+                    <!-- Styled file input wrapper -->
+                    <div class="p-inputgroup w-full">
+                      <input type="file" id="shapefile" accept=".zip" (change)="onShapefileUpload($event)"
+                        class="w-full border rounded p-2" />
+                    </div>
+
+                    <!-- Clear button styled same as PrimeNG -->
+                    <p-button *ngIf="shapefileZip" icon="pi pi-times" styleClass="p-button-danger p-button-rounded"
+                      (onClick)="clearShapefile()"></p-button>
+                  </div>
+
+                  <!-- Show file name -->
+                  <small *ngIf="shapefileZip" class="text-green-600 block mt-1">
+                    Selected: {{ shapefileZip.name }}
+                  </small>
+                </div>
+              </div>
+
+              <p-button label="Submit" icon="pi pi-check" (onClick)="submitLULC()"></p-button>
+              <div *ngIf="lulclegendshow" class="mt-4">
+                <h3>LULC Percentage (%)</h3>
+                <canvas id="lulcChart"></canvas>
+              </div>
+
+              <div *ngIf="lulclegendshow" class="mt-4">
+                <h3>LULC Area (km²)</h3>
+                <canvas id="lulcAreaChart"></canvas>
+              </div>
+              <div *ngIf="lulclegendshow" class="p-mt-3">
                 <h4>LULC Legend</h4>
                 <div class="legend">
                   <div class="legend-item" *ngFor="let item of lulcLegend">
@@ -645,11 +681,30 @@
                   </div>
                 </div>
               </div>
-              <p-button label="Submit" icon="pi pi-check" (onClick)="submitLULC()"></p-button>
-              <div class="p-mt-3">
-                <h4>LULC Distribution</h4>
-                <canvas id="lulcChart"></canvas>
-              </div>
+              <table *ngIf="lulclegendshow" class="table table-bordered">
+                <thead>
+                  <tr>
+                    <th>Class ID</th>
+                    <th>Class Name</th>
+                    <th>Pixel Count</th>
+                    <th>Area (km²)</th>
+                    <th>Percentage (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of lulcStatistics">
+                    <td>{{ row.class_id }}</td>
+                    <td>{{ row.class_name }}</td>
+                    <td>{{ row.pixel_count }}</td>
+                    <td>{{ row.area_km2 }}</td>
+                    <td>{{ row.percentage }}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+
+
+
 
             </p-tabpanel>
           </p-tabpanels>
