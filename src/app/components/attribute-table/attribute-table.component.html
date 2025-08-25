@@ -1,4 +1,4 @@
-<p-tabs [(value)]="selectedTab" (valueChange)="onTabChange($event)">
+<p-tabs [(value)]="selectedTab" (valueChange)="onTabChange($event)" scrollable>
   <p-tablist>
     <p-tab *ngFor="let tab of tabs" [value]="tab.value">
       {{ tab.label }}

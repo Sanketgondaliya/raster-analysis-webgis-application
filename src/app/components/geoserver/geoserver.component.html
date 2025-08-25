@@ -1,12 +1,12 @@
-<p-tabs [(value)]="value" (valueChange)="onTabChange($event)">
-  <p-tablist>
-    <p-tab *ngFor="let tab of tabs" [value]="tab.value">
+<p-tabs [(value)]="value" (valueChange)="onTabChange($event)" scrollable>
+  <p-tablist >
+    <p-tab *ngFor="let tab of tabs" [value]="tab.value" >
       {{ tab.label }}
     </p-tab>
   </p-tablist>
 
-  <p-tabpanels>
-    <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value">
+  <p-tabpanels >
+    <p-tabpanel *ngFor="let tab of tabs" [value]="tab.value" >
 
       <ng-container *ngIf="value === 1">
         <form [formGroup]="geoserverConfig" (ngSubmit)="geoserverConfigSumit()" class="p-fluid">
