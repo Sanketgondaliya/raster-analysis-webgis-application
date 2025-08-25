@@ -522,6 +522,36 @@
 
               <p-button label="Submit" icon="pi pi-check" styleClass="p-button-success"
                 (onClick)="submitData('ndvi')"></p-button>
+
+              <p-button label="Statistics" icon="pi pi-chart-bar" styleClass="p-button-info"
+                (onClick)="showStatistics('ndvi')"></p-button>
+
+              <canvas id="statsChart" width="400" height="200"></canvas>
+
+              <!-- Table for overall stats -->
+              <table *ngIf="overallStatsNdvi" class="table-auto border border-gray-300 mt-3 w-full">
+                <tr>
+                  <th class="border px-2 py-1">Metric</th>
+                  <th class="border px-2 py-1">Value</th>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Max</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdvi.max }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Mean</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdvi.mean }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Min</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdvi.min }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Total Area (km²)</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdvi.total_area_km2 }}</td>
+                </tr>
+              </table>
+
             </p-tabpanel>
             <p-tabpanel value="1">
               <div class="p-mb-3">
@@ -563,6 +593,34 @@
                 </div>
               </div>
               <p-button label="Submit" icon="pi pi-check" (onClick)="submitData('ndbi')"></p-button>
+              <p-button label="Statistics" icon="pi pi-chart-bar" styleClass="p-button-info"
+                (onClick)="showStatistics('ndbi')"></p-button>
+
+              <canvas id="statsChart" width="400" height="200"></canvas>
+              <!-- Table for overall stats -->
+              <table *ngIf="overallStatsNdbi" class="table-auto border border-gray-300 mt-3 w-full">
+                <tr>
+                  <th class="border px-2 py-1">Metric</th>
+                  <th class="border px-2 py-1">Value</th>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Max</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdbi.max }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Mean</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdbi.mean }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Min</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdbi.min }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Total Area (km²)</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdbi.total_area_km2 }}</td>
+                </tr>
+              </table>
+
             </p-tabpanel>
             <p-tabpanel value="2">
               <div class="p-mb-3">
@@ -605,6 +663,36 @@
                 </div>
               </div>
               <p-button label="Submit" icon="pi pi-check" (onClick)="submitData('ndwi')"></p-button>
+              <p-button label="Statistics" icon="pi pi-chart-bar" styleClass="p-button-info"
+                (onClick)="showStatistics('ndwi')"></p-button>
+              <canvas id="statsChart" width="400" height="200"></canvas>
+              <!-- Table for overall stats -->
+              <table *ngIf="overallStatsNdwi" class="table-auto border border-gray-300 mt-3 w-full">
+                <tr>
+                  <th class="border px-2 py-1">Metric</th>
+                  <th class="border px-2 py-1">Value</th>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Max</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdwi.max }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Mean</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdwi.mean }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Min</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdwi.min }}</td>
+                </tr>
+                <tr>
+                  <td class="border px-2 py-1">Total Area (km²)</td>
+                  <td class="border px-2 py-1">{{ overallStatsNdwi.total_area_km2 }}</td>
+                </tr>
+              </table>
+
+
+              
+
             </p-tabpanel>
             <p-tabpanel value="3">
               <div class="p-mb-3">

@@ -613,6 +613,126 @@ async def get_index(
     return FileResponse(tmp_file.name, media_type="image/tiff", filename=f"{service}.tiff")
 
 
+@app.post("/landsat_indices_statistics")
+async def get_index_statistics(
+    service: str = Form(..., description="ndvi, ndwi, ndbi"),
+    time_start: str = Form(None, description="start date YYYY-MM-DD"),
+    time_end: str = Form(None, description="end date YYYY-MM-DD"),
+    bbox: str = Form(None, description="bbox as minX,minY,maxX,maxY"),
+    zip_file: UploadFile = File(None, description="Shapefile ZIP"),
+):
+    service = service.lower()
+
+    geometry = None
+    bbox_sh = None
+    gdf = None
+
+    # --- Option 1: BBOX ---
+    if bbox:
+        try:
+            bbox_coords = [float(x) for x in bbox.split(",")]
+            if len(bbox_coords) != 4:
+                return JSONResponse(content={"error": "bbox must be minX,minY,maxX,maxY"}, status_code=400)
+            bbox_sh = BBox(bbox=bbox_coords, crs=CRS.WGS84)
+        except Exception as e:
+            return JSONResponse(content={"error": f"Invalid bbox: {str(e)}"}, status_code=400)
+
+    # --- Option 2: Shapefile ZIP ---
+    elif zip_file:
+        try:
+            tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+            with open(tmp_zip.name, "wb") as f:
+                f.write(await zip_file.read())
+            geometry, gdf = unzip_and_read_shapefile(tmp_zip.name)
+        except Exception as e:
+            return JSONResponse(content={"error": str(e)}, status_code=400)
+
+    else:
+        return JSONResponse(content={"error": "Provide either bbox or shapefile ZIP"}, status_code=400)
+
+    # --- SentinelHub Request ---
+    time_interval = (time_start, time_end) if time_start and time_end else None
+
+    sh_request = SentinelHubRequest(
+        evalscript=EVALSCRIPTS[service],
+        input_data=[
+            SentinelHubRequest.input_data(
+                data_collection=DataCollection.LANDSAT_OT_L2,
+                time_interval=time_interval
+            )
+        ],
+        responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
+        bbox=bbox_sh if bbox_sh else None,
+        geometry=geometry if geometry else None,
+        size=(512, 512),
+        config=config
+    )
+
+    data = sh_request.get_data()[0]
+
+    # --- Compute transform ---
+    if bbox_sh:
+        bbox_coords = [bbox_sh.min_x, bbox_sh.min_y, bbox_sh.max_x, bbox_sh.max_y]
+        total_area_m2 = (bbox_sh.max_x - bbox_sh.min_x) * (bbox_sh.max_y - bbox_sh.min_y) * (111320**2)
+    else:
+        bounds = gdf.total_bounds
+        total_area_m2 = (bounds[2] - bounds[0]) * (bounds[3] - bounds[1]) * (111320**2)
+
+    # --- Compute statistics ---
+    pixel_area_m2 = (total_area_m2 / data.size)
+    pixel_area_km2 = pixel_area_m2 / 1e6
+
+    mean_val = float(np.nanmean(data))
+    min_val = float(np.nanmin(data))
+    max_val = float(np.nanmax(data))
+
+    # Optional: define thresholds for index classes
+    if service == "ndvi":
+        CLASSES = {
+            "Low": (-1, 0.2),
+            "Medium": (0.2, 0.5),
+            "High": (0.5, 1.0)
+        }
+    elif service == "ndwi":
+        CLASSES = {
+            "Low": (-1, 0),
+            "Medium": (0, 0.3),
+            "High": (0.3, 1.0)
+        }
+    elif service == "ndbi":
+        CLASSES = {
+            "Low": (-1, 0),
+            "Medium": (0, 0.2),
+            "High": (0.2, 1.0)
+        }
+    else:
+        CLASSES = {}
+
+    class_stats = []
+    for cls, (low, high) in CLASSES.items():
+        mask = (data >= low) & (data < high)
+        count = int(np.count_nonzero(mask))
+        if count == 0:
+            continue
+        class_stats.append({
+            "class_name": cls,
+            "pixel_count": count,
+            "area_km2": round(count * pixel_area_km2, 2),
+            "percentage": round((count / data.size) * 100, 2)
+        })
+
+    result = {
+        "mean": round(mean_val, 4),
+        "min": round(min_val, 4),
+        "max": round(max_val, 4),
+        "pixel_area_km2": round(pixel_area_km2, 4),
+        "total_area_km2": round(pixel_area_km2 * data.size, 2),
+        "classes": class_stats
+    }
+
+    return JSONResponse(content=result, status_code=200)
+
+
 # ---------------- API Endpoints ----------------
 lst_downloader = LSTDataDownloader()
 

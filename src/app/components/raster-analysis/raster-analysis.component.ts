@@ -111,6 +111,15 @@ export class RasterAnalysisComponent implements OnInit {
   lstAreaChartInstance: any;
 
 
+  public statsChart: any;
+  public overallStatsNdvi: any = null;
+  public overallStatsNdbi: any = null;
+  public overallStatsNdwi: any = null;
+
+
+
+
+
 
 
   /** Upload Shapefile (.zip) */
@@ -208,6 +217,99 @@ export class RasterAnalysisComponent implements OnInit {
       }
     });
   }
+
+
+
+  showStatistics(service: 'ndvi' | 'ndbi' | 'ndwi') {
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+
+    switch (service) {
+      case 'ndvi':
+        startDate = this.ndviStartDate;
+        endDate = this.ndviEndDate;
+        break;
+      case 'ndbi':
+        startDate = this.ndbiStartDate;
+        endDate = this.ndbiEndDate;
+        break;
+      case 'ndwi':
+        startDate = this.ndwiStartDate;
+        endDate = this.ndwiEndDate;
+        break;
+    }
+
+    if (!startDate || !endDate) { alert('Select start/end dates!'); return; }
+    if (!this.shapefileZip && !this.bbox) { alert('Provide bbox or shapefile!'); return; }
+
+    this.rasterGlobalMethodService.fetchIndexStatistics(
+      service,
+      startDate,
+      endDate,
+      this.shapefileZip ?? undefined,
+      this.bbox?.toString()
+    ).subscribe({
+      next: (res) => {
+        // Store stats per service
+        if (service === 'ndvi') this.overallStatsNdvi = res;
+        if (service === 'ndbi') this.overallStatsNdbi = res;
+        if (service === 'ndwi') this.overallStatsNdwi = res;
+
+        this.renderStatsChart(res.classes, service);  // you can also pass a canvas id per tab
+      },
+      error: (err) => { console.error(err); alert('Statistics fetch failed'); }
+    });
+  }
+
+
+
+
+  renderStatsChart(classes: any[], service: string) {
+    if (this.statsChart) {
+      this.statsChart.destroy();
+    }
+
+    const ctx = (document.getElementById('statsChart') as HTMLCanvasElement).getContext('2d');
+
+    // Define colors per class name
+    const classColors: Record<string, string> = {
+      Low: 'rgba(102, 194, 165, 0.8)',     // greenish
+      Medium: 'rgba(252, 141, 98, 0.8)',   // orangish
+      High: 'rgba(141, 160, 203, 0.8)'     // bluish
+    };
+
+    this.statsChart = new Chart(ctx!, {
+      type: 'bar',
+      data: {
+        labels: classes.map(c => c.class_name),
+        datasets: [
+          {
+            label: `${service.toUpperCase()} Area (km²)`,
+            data: classes.map(c => c.area_km2),
+            backgroundColor: classes.map(c => classColors[c.class_name] || 'rgba(0,0,0,0.5)'),
+            borderColor: classes.map(c => classColors[c.class_name] || 'rgba(0,0,0,1)'),
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true },
+          title: {
+            display: true,
+            text: `${service.toUpperCase()} Statistics`
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
 
 
   submitLST() {

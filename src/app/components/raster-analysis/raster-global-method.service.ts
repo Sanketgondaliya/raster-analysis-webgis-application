@@ -306,6 +306,27 @@ export class RasterGlobalMethodService {
     return this.http.post(url, formData, { responseType: 'blob' });
   }
 
+  fetchIndexStatistics(
+    service: 'ndvi' | 'ndbi' | 'ndwi',
+    startDate: Date,
+    endDate: Date,
+    shapefileZip?: File,
+    bbox?: string
+  ): Observable<any> {
+    const formData = new FormData();
+    formData.append('service', service);
+    formData.append('time_start', startDate.toISOString().split('T')[0]);
+    formData.append('time_end', endDate.toISOString().split('T')[0]);
+
+    if (shapefileZip) {
+      formData.append('zip_file', shapefileZip, shapefileZip.name);
+    } else if (bbox) {
+      formData.append('bbox', bbox);
+    }
+
+    const url = `${this.baseUrl}/landsat_indices_statistics`;
+    return this.http.post<any>(url, formData);  // JSON response
+  }
 
 
 
@@ -357,8 +378,6 @@ export class RasterGlobalMethodService {
     const url = `${this.baseUrl}/lst_statistics`;
     return this.http.post<any>(url, formData);
   }
-
-
 
 
   // ✅ Fetch LULC Raster
