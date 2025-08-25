@@ -6,8 +6,7 @@ from services import *
 import os
 import base64
 from fastapi.responses import JSONResponse
-from typing import List, Dict, Tuple
-
+from typing import List
 from sentinelhub import SHConfig, SentinelHubRequest, MimeType, DataCollection, BBox, CRS
 import numpy as np
 import rasterio 
@@ -42,6 +41,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 # Define your upload and output folders
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "outputs"
@@ -613,60 +613,177 @@ async def get_index(
     return FileResponse(tmp_file.name, media_type="image/tiff", filename=f"{service}.tiff")
 
 
-
-
-
-downloader = LSTDataDownloader()
-# --- Request model ---
-class LSTRequest(BaseModel):
-    time_start: str = Field(..., description="Start date in YYYY-MM-DD")
-    time_end: str = Field(..., description="End date in YYYY-MM-DD")
-    bbox: List[float] = Field(..., description="[minx,miny,maxx,maxy]")
-
+# ---------------- API Endpoints ----------------
+lst_downloader = LSTDataDownloader()
 
 @app.post("/download_lst")
-def download_lst(request: LSTRequest):
-    """
-    Download Land Surface Temperature (LST) for a bounding box and date range.
-    Returns the TIFF file directly.
-    """
+
+async def download_lst(
+    time_start: str = Form(...),
+    time_end: str = Form(...),
+    bbox: str = Form(None, description="bbox as minX,minY,maxX,maxY"),
+    zip_file: UploadFile = File(None, description="Shapefile ZIP")
+):
     try:
-        if not isinstance(request.bbox, list) or len(request.bbox) != 4:
-            raise ValueError("bbox must be [minx,miny,maxx,maxy]")
+        LSTDataDownloader.initialize_earth_engine()
 
-        coords = [float(c) for c in request.bbox]
+        region = None
+        shp_path = None
+        scale=1000
+        
 
-        # Build Earth Engine geometry
-        region = ee.Geometry.Rectangle(coords)
+        # Option 1: bbox
+        if bbox:
+            coords = [float(x) for x in bbox.split(",")]
+            if len(coords) != 4:
+                return {"error": "bbox must be minX,minY,maxX,maxY"}
+            region = ee.Geometry.Rectangle(coords)
 
-        # Call downloader → should return dict with "filename"
-        result = downloader.download_lst_data(
-            start_date=request.time_start,
-            end_date=request.time_end,
-            region=region,
-            scale=100
+        # Option 2: shapefile
+        elif zip_file:
+            tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+            with open(tmp_zip.name, "wb") as f:
+                shutil.copyfileobj(zip_file.file, f)
+            region, shp_path = unzip_and_read_shapefile_ee(tmp_zip.name)
+        else:
+            return {"error": "Provide either bbox or shapefile ZIP"}
+
+        # Download LST
+        tiff_path = LSTDataDownloader.download_lst_single(
+            start_date=time_start, end_date=time_end, region=region, scale=scale
         )
 
-        if not isinstance(result, dict) or "filename" not in result:
-            raise ValueError("Downloader did not return a valid filename")
+        folder = "LST_data"
+        os.makedirs(folder, exist_ok=True)
+        output_tiff = os.path.join(folder, "LST_clipped.tif")
 
-        tiff_path = result["filename"]
+        if shp_path:
+            clip_raster_gdal(tiff_path, output_tiff, shapefile=shp_path)
+        else:
+            shutil.copy2(tiff_path, output_tiff)
+
+        try:
+            if os.path.exists(tiff_path):
+                os.remove(tiff_path)
+        except:
+            pass
 
         return FileResponse(
-            path=tiff_path,
-            filename=os.path.basename(tiff_path),
-            media_type="image/tiff",
+            path=output_tiff,
+            filename="LST_clipped.tif",
+            media_type="image/tiff"
         )
 
     except Exception as e:
-        print("DEBUG ERROR:\n", traceback.format_exc())
+        import traceback
+        logger.error(f"DEBUG ERROR:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
+
+
+@app.post("/lst_statistics")
+async def lst_statistics(
+    time_start: str = Form(...),
+    time_end: str = Form(...),
+    bbox: str = Form(None, description="bbox as minX,minY,maxX,maxY"),
+    zip_file: UploadFile = File(None, description="Shapefile ZIP"),
+    
+):
+    try:
+        LSTDataDownloader.initialize_earth_engine()
+
+        region = None
+        shp_path = None
+        scale=1000
+
+
+        if bbox:
+            coords = [float(x) for x in bbox.split(",")]
+            if len(coords) != 4:
+                return {"error": "bbox must be minX,minY,maxX,maxY"}
+            region = ee.Geometry.Rectangle(coords)
+        elif zip_file:
+            tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+            with open(tmp_zip.name, "wb") as f:
+                shutil.copyfileobj(zip_file.file, f)
+            region, shp_path = unzip_and_read_shapefile_ee(tmp_zip.name)
+        else:
+            return {"error": "Provide either bbox or shapefile ZIP"}
+
+        # --- Download TIFF ---
+        tiff_path = LSTDataDownloader.download_lst_single(
+            start_date=time_start, end_date=time_end, region=region, scale=scale
+        )
+
+        output_tiff = os.path.join(tempfile.gettempdir(), "LST_clipped.tif")
+        if shp_path:
+            clip_raster_gdal(tiff_path, output_tiff, shapefile=shp_path)
+        else:
+            shutil.copy2(tiff_path, output_tiff)
+
+        try:
+            if os.path.exists(tiff_path):
+                os.remove(tiff_path)
+        except:
+            pass
+
+        # --- Read raster and compute statistics ---
+        with rasterio.open(output_tiff) as src:
+            data = src.read(1).astype(float)
+            total_pixels = data.size
+            pixel_area_m2 = scale * scale
+            pixel_area_km2 = pixel_area_m2 / 1e6
+
+            mean_val = float(np.nanmean(data))
+            min_val = float(np.nanmin(data))
+            max_val = float(np.nanmax(data))
+
+        # Temperature classes in °C
+        TEMP_CLASSES = {
+            "Very Cold": (-999, 0),
+            "Cold": (0, 10),
+            "Mild": (10, 20),
+            "Hot": (20, 30),
+            "Extreme": (30, 999),
+        }
+
+        stats_classes = []
+        for class_name, (low, high) in TEMP_CLASSES.items():
+            mask = (data >= low) & (data < high)
+            count = int(np.count_nonzero(mask))
+            if count == 0:
+                continue
+            stats_classes.append({
+                "class_name": class_name,
+                "pixel_count": count,
+                "area_km2": round(count * pixel_area_km2, 2),
+                "percentage": round((count / total_pixels) * 100, 2)
+            })
+
+        try:
+            if os.path.exists(output_tiff):
+                os.remove(output_tiff)
+        except:
+            pass
+
+        return JSONResponse(content={
+            "lst_statistics": {
+                "summary": {
+                    "mean_celsius": round(mean_val, 2),
+                    "min_celsius": round(min_val, 2),
+                    "max_celsius": round(max_val, 2),
+                    "area_km2": round(total_pixels * pixel_area_km2, 2)
+                },
+                "classes": stats_classes
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        logger.error(f"DEBUG ERROR:\n{traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
 
 
 lulc_downloader = LULCDataDownloader()
-
-
-
 @app.post("/download_lulc")
 async def download_lulc(
     bbox: str = Form(None, description="bbox as minX,minY,maxX,maxY"),
@@ -730,7 +847,6 @@ async def download_lulc(
         import traceback
         logger.error(f"DEBUG ERROR:\n{traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {str(e)}")
-
 
 @app.post("/lulc_statistics")
 async def lulc_statistics(

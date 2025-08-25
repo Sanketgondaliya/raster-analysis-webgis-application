@@ -610,6 +610,30 @@
               <div class="p-mb-3">
                 <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
               </div>
+              <!-- Upload Shapefile Boundary -->
+              <div class="col-12">
+                <div class="field">
+                  <label for="shapefile" class="block mb-2 font-semibold">Upload Shapefile (.zip)</label>
+
+                  <div class="flex items-center gap-2">
+                    <!-- Styled file input wrapper -->
+                    <div class="p-inputgroup w-full">
+                      <input type="file" id="shapefile" accept=".zip" (change)="onShapefileUpload($event)"
+                        class="w-full border rounded p-2" />
+                    </div>
+
+                    <!-- Clear button styled same as PrimeNG -->
+                    <p-button *ngIf="shapefileZip" icon="pi pi-times" styleClass="p-button-danger p-button-rounded"
+                      (onClick)="clearShapefile()"></p-button>
+                  </div>
+
+                  <!-- Show file name -->
+                  <small *ngIf="shapefileZip" class="text-green-600 block mt-1">
+                    Selected: {{ shapefileZip.name }}
+                  </small>
+                </div>
+              </div>
+
               <div class="p-grid p-align-center p-mb-3">
                 <div class="p-col-6">
                   <label for="lstStart">Start Date:</label>
@@ -621,15 +645,60 @@
                 </div>
               </div>
               <p-button label="Submit" icon="pi pi-check" (onClick)="submitLST()"></p-button>
-              <div class="p-mt-3">
-                <h4>LST Legend (°C)</h4>
-                <div class="legend">
-                  <div class="legend-item" *ngFor="let item of lstLegend">
-                    <span class="legend-color" [ngStyle]="{'background-color': item.color}"></span>
-                    <span>{{item.label}}</span>
-                  </div>
-                </div>
+              <div *ngIf="lstLegendShow" class="mt-4">
+                <h3>LST Percentage (%)</h3>
+                <canvas id="lstChart"></canvas>
               </div>
+
+              <div *ngIf="lstLegendShow" class="mt-4">
+                <h3>LST Area (km²)</h3>
+                <canvas id="lstAreaChart"></canvas>
+              </div>
+
+              <div *ngIf="lstLegendShow" class="mt-4">
+                <h3>LST Summary</h3>
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Mean (°C)</th>
+                      <th>Min (°C)</th>
+                      <th>Max (°C)</th>
+                      <th>Area (km²)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>{{ lstSummary?.mean_celsius }}</td>
+                      <td>{{ lstSummary?.min_celsius }}</td>
+                      <td>{{ lstSummary?.max_celsius }}</td>
+                      <td>{{ lstSummary?.area_km2 }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div *ngIf="lstLegendShow" class="mt-4">
+                <h3>LST Classes</h3>
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Class Name</th>
+                      <th>Pixel Count</th>
+                      <th>Area (km²)</th>
+                      <th>Percentage (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of lstStatistics">
+                      <td>{{ row.class_name }}</td>
+                      <td>{{ row.pixel_count }}</td>
+                      <td>{{ row.area_km2 }}</td>
+                      <td>{{ row.percentage }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
 
             </p-tabpanel>
             <p-tabpanel value="4">
@@ -637,7 +706,7 @@
                 <p-button label="Draw Area" icon="pi pi-map" (onClick)="startDraw()"></p-button>
               </div>
 
-              
+
               <!-- Upload Shapefile Boundary -->
               <div class="col-12">
                 <div class="field">

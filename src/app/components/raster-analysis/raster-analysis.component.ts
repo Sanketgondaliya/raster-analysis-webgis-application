@@ -46,10 +46,6 @@ import CircleStyle from 'ol/style/Circle';
 import { GeoJSON } from 'ol/format';
 
 
-
-
-
-
 @Component({
   selector: 'app-raster-analysis',
   standalone: true,
@@ -57,6 +53,7 @@ import { GeoJSON } from 'ol/format';
   templateUrl: './raster-analysis.component.html',
   styleUrls: ['./raster-analysis.component.scss'],
 })
+
 export class RasterAnalysisComponent implements OnInit {
   @ViewChild('elevationChart') elevationChartRef!: ElementRef;
   demFile: File | null = null;
@@ -106,6 +103,12 @@ export class RasterAnalysisComponent implements OnInit {
   lstEndDate: Date = new Date('2025-01-01');
   lulcChartInstance: any;
   lulcAreaChartInstance: any;
+
+  lstLegendShow: boolean = false;
+  lstSummary: any;
+  lstStatistics: any;
+  lstChartInstance: any;
+  lstAreaChartInstance: any;
 
 
 
@@ -213,33 +216,137 @@ export class RasterAnalysisComponent implements OnInit {
       return;
     }
 
-    this.rasterGlobalMethodService.fetchLST(this.bbox, this.lstStartDate, this.lstEndDate)
-      .subscribe({
-        next: (blob) => {
-          this.visualizeTiff(blob, 'lst');
-          alert('✅ LST raster loaded successfully!');
-        },
-        error: (err) => {
-          console.error('Failed to fetch LST raster:', err);
-          alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
-        }
-      });
+    this.rasterGlobalMethodService.fetchLST(
+      this.shapefileZip ?? undefined,
+      this.bbox ?? undefined,
+      this.lstStartDate,
+      this.lstEndDate
+    ).subscribe({
+      next: (blob) => {
+        this.visualizeTiff(blob, 'lst');
+        this.getLSTStat();   // ✅ fetch statistics too
+        this.lstLegendShow = true;
+      },
+      error: (err) => {
+        console.error('Failed to fetch LST raster:', err);
+        alert('❌ Failed to fetch LST raster. No data found for the selected range/region.');
+      }
+    });
   }
 
-  //   submitLULC() {
-  //   this.rasterGlobalMethodService.fetchLULC(this.bbox)
-  //     .subscribe({
-  //       next: (blob) => {
-  //         this.visualizeTiffLulc(blob, 'lulc');
-  //         this.getLulcStat(this.bbox); // fetch statistics and show chart
-  //         this.lulclegendshow = true;
-  //       },
-  //       error: (err) => {
-  //         console.error('Failed to fetch LULC raster:', err);
-  //         alert('❌ Failed to fetch LULC raster. No data found for the selected range/region.');
-  //       }
-  //     });
-  // }
+  getLSTStat() {
+    this.rasterGlobalMethodService.fetchLSTStatistics(
+      this.shapefileZip ?? undefined,
+      this.bbox ?? undefined,
+      this.lstStartDate,
+      this.lstEndDate
+    ).subscribe({
+      next: (data: any) => {
+        this.lstSummary = data.lst_statistics.summary;
+        this.lstStatistics = data.lst_statistics.classes;
+        this.showLSTChart();
+        this.showLSTAreaChart();
+      },
+      error: (err) => {
+        console.error('Failed to fetch LST stats:', err);
+        alert('❌ Failed to fetch LST stats. No data found for the selected range/region.');
+      }
+    });
+  }
+
+  showLSTChart() {
+    if (this.lstChartInstance) {
+      this.lstChartInstance.destroy();
+    }
+
+    const lstColors: Record<string, string> = {
+      'Very Cold': '#4575b4',
+      'Cold': '#74add1',
+      'Mild': '#fdae61',
+      'Hot': '#f46d43',
+      'Extreme': '#d73027'
+    };
+
+    const labels = this.lstStatistics.map((x: { class_name: any }) => x.class_name);
+    const data = this.lstStatistics.map((x: { percentage: any }) => x.percentage);
+    const backgroundColors = this.lstStatistics.map((x: { class_name: any }) => lstColors[x.class_name] || '#cccccc');
+
+    this.lstChartInstance = new Chart('lstChart', {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'LST Percentage (%)',
+          data: data,
+          backgroundColor: backgroundColors
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.label}: ${context.raw}%`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Percentage (%)' }
+          }
+        }
+      }
+    });
+  }
+
+  showLSTAreaChart() {
+    if (this.lstAreaChartInstance) {
+      this.lstAreaChartInstance.destroy();
+    }
+
+    const lstColors: Record<string, string> = {
+      'Very Cold': '#4575b4',
+      'Cold': '#74add1',
+      'Mild': '#fdae61',
+      'Hot': '#f46d43',
+      'Extreme': '#d73027'
+    };
+
+    const labels = this.lstStatistics.map((x: { class_name: any }) => x.class_name);
+    const data = this.lstStatistics.map((x: { area_km2: number }) => x.area_km2);
+    const backgroundColors = this.lstStatistics.map((x: { class_name: any }) => lstColors[x.class_name] || '#cccccc');
+
+    this.lstAreaChartInstance = new Chart('lstAreaChart', {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'LST Area (km²)',
+          data: data,
+          backgroundColor: backgroundColors
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.label}: ${context.raw} km²`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Area (km²)' }
+          }
+        }
+      }
+    });
+  }
 
 
   submitLULC() {
