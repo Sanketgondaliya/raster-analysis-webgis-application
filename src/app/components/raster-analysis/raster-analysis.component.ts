@@ -116,7 +116,22 @@ export class RasterAnalysisComponent implements OnInit {
   public overallStatsNdbi: any = null;
   public overallStatsNdwi: any = null;
 
+  scrollableTabs = [
+    { value: '0', title: 'Download' },
+    { value: '1', title: 'Upload' },
+    { value: '2', title: 'Slope' },
+    { value: '3', title: 'Aspect' },
+    { value: '4', title: 'Hillshade' },
+    { value: '5', title: 'Roughness' },
+    { value: '6', title: 'TPI' },
+    { value: '7', title: 'Contour' },
+    { value: '8', title: 'Elevation Profile' },
+    { value: '9', title: 'Elevation At Point' },
+  ];
 
+  trackByTab(index: number, tab: any) {
+    return tab.value;
+  }
 
 
 

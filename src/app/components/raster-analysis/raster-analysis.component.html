@@ -8,19 +8,15 @@
       <!-- DEM TAB -->
       <p-tabpanel value="0">
         <div class="card">
-          <p-tabs value="0">
+
+
+          <p-tabs value="0" scrollable>
             <p-tablist>
-              <p-tab value="0">Download</p-tab>
-              <p-tab value="1">Upload</p-tab>
-              <p-tab value="2">Slope</p-tab>
-              <p-tab value="3">Aspect</p-tab>
-              <p-tab value="4">Hillshade</p-tab>
-              <p-tab value="5">Roughness</p-tab>
-              <p-tab value="6">TPI</p-tab>
-              <p-tab value="7">Countour</p-tab>
-              <p-tab value="8">Elevation Profile</p-tab>
-              <p-tab value="9">Elevation At Point</p-tab>
+              <ng-container *ngFor="let tab of scrollableTabs; trackBy: trackByTab">
+                <p-tab [value]="tab.value">{{ tab.title }}</p-tab>
+              </ng-container>
             </p-tablist>
+
             <p-tabpanels>
               <p-tabpanel value="0">
                 <div class="grid">
@@ -460,6 +456,7 @@
                 </form>
               </p-tabpanel>
             </p-tabpanels>
+
           </p-tabs>
         </div>
         <div class="p-fluid">
@@ -467,7 +464,7 @@
       </p-tabpanel>
       <!-- SATELLITE TAB -->
       <p-tabpanel value="1">
-        <p-tabs value="0">
+        <p-tabs value="0" scrollable>
           <p-tablist>
             <p-tab value="0">NDVI</p-tab>
             <p-tab value="1">NDBI</p-tab>
@@ -691,7 +688,7 @@
               </table>
 
 
-              
+
 
             </p-tabpanel>
             <p-tabpanel value="3">
