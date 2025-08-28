@@ -1,0 +1,172 @@
+<div class="card">
+  <p-tabs value="0">
+    <p-tablist>
+      <p-tab value="0">Create</p-tab>
+      <p-tab value="1">Upload</p-tab>
+      <p-tab value="2">Manage</p-tab>
+    </p-tablist>
+
+    <p-tabpanels>
+      <!-- Create Tab -->
+      <p-tabpanel value="0">
+        <div class="grid p-fluid">
+          <div class="col-12 md:col-4">
+            <button pButton 
+                    label="Point" 
+                    icon="pi pi-circle" 
+                    class="w-full mb-2" 
+                    (click)="startDrawing('point')"
+                    [disabled]="isDrawing"></button>
+          </div>
+          <div class="col-12 md:col-4">
+            <button pButton 
+                    label="Line" 
+                    icon="pi pi-minus" 
+                    class="w-full mb-2" 
+                    (click)="startDrawing('line')"
+                    [disabled]="isDrawing"></button>
+          </div>
+          <div class="col-12 md:col-4">
+            <button pButton 
+                    label="Polygon" 
+                    icon="pi pi-stop" 
+                    class="w-full mb-2" 
+                    (click)="startDrawing('polygon')"
+                    [disabled]="isDrawing"></button>
+          </div>
+          
+          <div class="col-12" *ngIf="isDrawing">
+            <p-card header="Drawing Mode Active">
+              <p>Drawing a {{drawingType}}. Click on the map to create vertices.</p>
+              <p>Double-click to finish drawing.</p>
+              <button pButton 
+                      label="Cancel Drawing" 
+                      icon="pi pi-times" 
+                      class="p-button-danger" 
+                      (click)="cancelDrawing()"></button>
+            </p-card>
+          </div>
+        </div>
+      </p-tabpanel>
+
+      <!-- Upload Tab -->
+      <p-tabpanel value="1">
+        <div class="grid p-fluid">
+          <div class="col-12">
+            <p-fileUpload name="vectorData" 
+                          [accept]="acceptedFileTypes" 
+                          [maxFileSize]="10000000" 
+                          (onUpload)="onFileUpload($event)"
+                          chooseLabel="Browse" 
+                          uploadLabel="Import" 
+                          cancelLabel="Cancel"
+                          [customUpload]="true">
+              <ng-template pTemplate="content">
+                <ul *ngIf="uploadedFiles.length">
+                  <li *ngFor="let file of uploadedFiles">
+                    {{ file.name }} - {{ file.size }} bytes
+                  </li>
+                </ul>
+              </ng-template>
+            </p-fileUpload>
+            <small>Supported formats: SHP (zipped), KML, GPX, GeoJSON</small>
+          </div>
+        </div>
+      </p-tabpanel>
+
+      <!-- Manage Tab -->
+      <p-tabpanel value="2">
+        <div class="grid p-fluid">
+          <div class="col-12 md:col-6">
+            <button pButton 
+                    label="Toggle Edit Mode" 
+                    icon="pi pi-pencil" 
+                    class="w-full mb-2" 
+                    (click)="toggleEditMode()"></button>
+          </div>
+          <div class="col-12 md:col-6">
+            <button pButton 
+                    label="Delete Selected" 
+                    icon="pi pi-trash" 
+                    class="p-button-danger w-full mb-2" 
+                    (click)="deleteSelectedFeature()"
+                    [disabled]="!selectedFeature"></button>
+          </div>
+          
+          <div class="col-12 md:col-4">
+            <button pButton 
+                    label="Export GeoJSON" 
+                    icon="pi pi-download" 
+                    class="p-button-help w-full mb-2" 
+                    (click)="exportData('geojson')"></button>
+          </div>
+          <div class="col-12 md:col-4">
+            <button pButton 
+                    label="Export KML" 
+                    icon="pi pi-download" 
+                    class="p-button-help w-full mb-2" 
+                    (click)="exportData('kml')"></button>
+          </div>
+          <div class="col-12 md:col-4">
+            <button pButton 
+                    label="Export GPX" 
+                    icon="pi pi-download" 
+                    class="p-button-help w-full mb-2" 
+                    (click)="exportData('gpx')"></button>
+          </div>
+          
+          <div class="col-12">
+            <button pButton 
+                    label="Clear All Data" 
+                    icon="pi pi-times" 
+                    class="p-button-warning w-full" 
+                    (click)="clearAllData()"></button>
+          </div>
+          
+          <div class="col-12" *ngIf="selectedFeature">
+            <p-card header="Selected Feature">
+              <p>Type: {{ selectedFeature.getGeometry()?.getType() }}</p>
+              <div *ngFor="let field of attributeFields">
+                <strong>{{ field.label }}:</strong> {{ selectedFeature.get(field.name) || 'Not set' }}
+              </div>
+              <button pButton 
+                      label="Edit Attributes" 
+                      icon="pi pi-cog" 
+                      class="w-full mt-2" 
+                      (click)="displayAttributeDialog = true"></button>
+            </p-card>
+          </div>
+        </div>
+      </p-tabpanel>
+    </p-tabpanels>
+  </p-tabs>
+
+  <!-- Attribute Dialog -->
+  <p-dialog header="Edit Attributes" 
+            [(visible)]="displayAttributeDialog" 
+            [modal]="true" 
+            [style]="{width: '50vw'}">
+    <div class="grid p-fluid" *ngIf="selectedFeature">
+      <div class="col-12" *ngFor="let field of attributeFields">
+        <label [for]="field.name">{{ field.label }}</label>
+        <input pInputText 
+               [id]="field.name" 
+               [(ngModel)]="attributeData[field.name]" 
+               class="w-full" />
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <button pButton 
+              label="Cancel" 
+              icon="pi pi-times" 
+              class="p-button-text" 
+              (click)="displayAttributeDialog = false"></button>
+      <button pButton 
+              label="Save" 
+              icon="pi pi-check" 
+              (click)="saveAttributes()"></button>
+    </ng-template>
+  </p-dialog>
+</div>
+
+<p-toast></p-toast>

@@ -1,0 +1,24 @@
+// vector-data-management.component.scss
+:host ::ng-deep {
+  .p-tabview-panels {
+    padding: 0;
+  }
+  
+  .p-fileupload-buttonbar {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  
+  .p-fileupload-content {
+    border: none;
+    padding: 0;
+  }
+}
+
+.feature-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}

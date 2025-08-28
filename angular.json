@@ -51,7 +51,6 @@
             ],
             "styles": [
               "src/styles.scss",
-              "node_modules/primeflex/primeflex.css",
               "src/ol.scss",
               "node_modules/cesium/Build/Cesium/Widgets/widgets.css"
             ],

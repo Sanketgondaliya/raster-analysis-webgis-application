@@ -5,6 +5,7 @@ import { QueryModuleComponent } from './components/query-module/query-module.com
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { GeoserverComponent } from './components/geoserver/geoserver.component';
 import { RasterAnalysisComponent } from './components/raster-analysis/raster-analysis.component';
+import {VectorDataManagementComponent} from './components/vactor-data-management/vactor-data-management.component'
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -14,6 +15,6 @@ export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent },
   { path: 'appconfig', component: GeoserverComponent },
   { path: 'raster-analysis', component: RasterAnalysisComponent },
-
+  { path: 'Vector-DataManagement', component: VectorDataManagementComponent },
   { path: '**', redirectTo: 'layer-switcher' }
 ];
