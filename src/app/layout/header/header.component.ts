@@ -82,8 +82,9 @@ export class HeaderComponent {
     { label: 'Attribute Table', path: 'attribute-table' },
     { label: 'Query Module', path: 'query-module' },
     { label: 'App-Configuration', path: 'appconfig' },
-    { label: 'raster-analysis', path: 'raster-analysis' }
-
+    { label: 'raster-analysis', path: 'raster-analysis' },
+    { label: 'Vector Data Mangemnent', path: 'Vector-DataManagement' }
+    
 
   ];
 
