@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { VactorDataManagementComponent } from './vactor-data-management.component';
+import { VectorDataManagementComponent } from './vactor-data-management.component';
 
-describe('VactorDataManagementComponent', () => {
-  let component: VactorDataManagementComponent;
-  let fixture: ComponentFixture<VactorDataManagementComponent>;
+describe('VectorDataManagementComponent', () => {
+  let component: VectorDataManagementComponent;
+  let fixture: ComponentFixture<VectorDataManagementComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [VactorDataManagementComponent]
+      imports: [VectorDataManagementComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(VactorDataManagementComponent);
+    fixture = TestBed.createComponent(VectorDataManagementComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

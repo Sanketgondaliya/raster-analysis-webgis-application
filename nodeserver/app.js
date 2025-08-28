@@ -11,6 +11,7 @@ const { exec } = require('child_process');
 const { Client } = require('pg');
 const os = require('os');
 const isWindows = os.platform() === 'win32';
+const shapefile = require('shapefile');
 
 const ogr2ogrPath = isWindows
 	? `"C:\\Program Files\\QGIS 3.32.1\\bin\\ogr2ogr.exe"` // Windows path
@@ -1194,6 +1195,110 @@ app.post('/api/get-column-types', async (req, res) => {
     });
   }
 });
+
+
+/**
+ * POST /api/upload-shapefile
+ * Description: Uploads a zipped shapefile and converts it to GeoJSON
+ * Expects: multipart/form-data with file field named 'file'
+ */
+app.post('/api/upload-shapefile', upload.single('file'), async (req, res) => {
+  let extractDir = null;
+  let shapefilePath = null;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    const filePath = req.file.path;
+    const originalName = req.file.originalname.toLowerCase();
+    
+    // Check if it's a ZIP file
+    if (!originalName.endsWith('.zip')) {
+      return res.status(400).json({ 
+        error: 'Only ZIP files containing shapefiles are supported' 
+      });
+    }
+
+    // Extract ZIP file
+    extractDir = path.join('uploads', `extracted_${Date.now()}`);
+    fs.mkdirSync(extractDir, { recursive: true });
+    
+    const zip = new AdmZip(filePath);
+    zip.extractAllTo(extractDir, true);
+    
+    // Find the .shp file in the extracted directory
+    const files = fs.readdirSync(extractDir);
+    const shpFile = files.find(f => f.toLowerCase().endsWith('.shp'));
+    
+    if (!shpFile) {
+      throw new Error('ZIP file does not contain a .shp file');
+    }
+    
+    shapefilePath = path.join(extractDir, shpFile);
+    
+    // Verify companion files exist
+    const basePath = shapefilePath.replace(/\.shp$/i, '');
+    const requiredExtensions = ['.shx', '.dbf'];
+    
+    for (const ext of requiredExtensions) {
+      if (!fs.existsSync(`${basePath}${ext}`)) {
+        throw new Error(`Missing required companion file: ${basePath}${ext}`);
+      }
+    }
+
+    // Process the shapefile
+    const features = [];
+    const source = await shapefile.open(shapefilePath);
+    
+    let result = await source.read();
+    while (!result.done) {
+      const feature = {
+        type: 'Feature',
+        geometry: result.value.geometry,
+        properties: result.value.properties
+      };
+      features.push(feature);
+      result = await source.read();
+    }
+
+    // Create GeoJSON feature collection
+    const geoJSON = {
+      type: 'FeatureCollection',
+      features: features
+    };
+    
+    res.json({
+      success: true,
+      geoJSON,
+      metadata: {
+        featureCount: features.length,
+        fileName: originalName
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing shapefile:', error);
+    res.status(500).json({
+      error: 'Error processing shapefile',
+      details: error.message
+    });
+  } finally {
+    // Clean up temporary files
+    try {
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      if (extractDir && fs.existsSync(extractDir)) {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+      }
+    } catch (cleanupError) {
+      console.warn('Cleanup error:', cleanupError);
+    }
+  }
+});
+
 // Start server
 app.listen(port, () => {
 	console.log(`Server running on port ${port}`);

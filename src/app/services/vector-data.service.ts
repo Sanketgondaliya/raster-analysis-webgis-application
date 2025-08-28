@@ -1,12 +1,13 @@
-// vector-data.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import Feature from 'ol/Feature';
 import GeoJSON from 'ol/format/GeoJSON';
 import KML from 'ol/format/KML';
 import GPX from 'ol/format/GPX';
+import { environment } from '../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -15,6 +16,7 @@ export class VectorDataService {
   private features: Feature[] = [];
 
   constructor(private http: HttpClient) {}
+  private baseUrl = environment.apiBaseUrl;
 
   /**
    * Upload shapefile to backend
@@ -22,9 +24,30 @@ export class VectorDataService {
   uploadShapefile(file: File): Observable<any> {
     const formData = new FormData();
     formData.append('file', file, file.name);
+    
+    return this.http.post(`${this.baseUrl}/upload-shapefile`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    }).pipe(
+      map(event => this.getEventMessage(event, file))
+    );
+  }
 
-    // ⚠️ Adjust API URL based on your backend
-    return this.http.post('/api/upload-shapefile', formData);
+  /**
+   * Process HTTP events for upload progress
+   */
+  private getEventMessage(event: HttpEvent<any>, file: File) {
+    switch (event.type) {
+      case HttpEventType.UploadProgress:
+        const percentDone = Math.round(100 * event.loaded / (event.total || 1));
+        return { status: 'progress', percent: percentDone };
+        
+      case HttpEventType.Response:
+        return event.body;
+        
+      default:
+        return `File "${file.name}" surprising upload event: ${event.type}.`;
+    }
   }
 
   /**
@@ -110,7 +133,8 @@ export class VectorDataService {
 
         try {
           const features = format.readFeatures(result, {
-            featureProjection: 'EPSG:3857' // Web Mercator
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
           });
           this.addFeatures(features);
           resolve(features);

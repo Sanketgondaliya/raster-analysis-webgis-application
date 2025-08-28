@@ -1,4 +1,3 @@
-// vector-data-management.component.ts
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,6 +10,7 @@ import { SelectModule } from 'primeng/select';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { CardModule } from 'primeng/card';
+import { ProgressBarModule } from 'primeng/progressbar';
 import Map from 'ol/Map';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
@@ -20,16 +20,16 @@ import { Fill, Stroke, Style, Circle } from 'ol/style';
 import Draw, { DrawEvent } from 'ol/interaction/Draw';
 import Modify from 'ol/interaction/Modify';
 import Select from 'ol/interaction/Select';
-import { pointerMove } from 'ol/events/condition';
+import * as olEventsCondition from 'ol/events/condition';
 import LineString from 'ol/geom/LineString';
 import Polygon from 'ol/geom/Polygon';
 import { GeoJSON, KML, GPX } from 'ol/format';
 import { getArea, getLength } from 'ol/sphere';
+import { transform } from 'ol/proj';
 
 import { MapService } from '../../services/map.service';
 import { VectorDataService } from '../../services/vector-data.service';
 
-// Add missing GeometryType enum
 enum GeometryType {
   POINT = 'Point',
   LINE_STRING = 'LineString',
@@ -53,7 +53,8 @@ enum GeometryType {
     SelectModule,
     ToastModule,
     TabsModule,
-    CardModule
+    CardModule,
+    ProgressBarModule
   ],
   templateUrl: './vactor-data-management.component.html',
   styleUrls: ['./vactor-data-management.component.scss'],
@@ -67,7 +68,6 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   modify!: Modify;
   select!: Select;
 
-  // UI state variables
   activeTabIndex: number = 0;
   drawingType: string = '';
   isDrawing: boolean = false;
@@ -75,10 +75,10 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   selectedFeature: Feature | null = null;
   attributeData: any = {};
 
-  // Uploaded files state
   uploadedFiles: File[] = [];
+  uploadProgress: number = 0;
+  isUploading: boolean = false;
 
-  // Vector layer management
   vectorLayers: any[] = [];
   selectedLayer: any = null;
   layerStyles: any = {
@@ -106,10 +106,8 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     })
   };
 
-  // File upload
   acceptedFileTypes = '.shp,.kml,.gpx,.geojson,.json,.zip';
 
-  // Attribute fields
   attributeFields: any[] = [
     { name: 'name', type: 'string', label: 'Name' },
     { name: 'description', type: 'string', label: 'Description' },
@@ -134,7 +132,6 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   initializeMap(): void {
     this.map = this.mapService.getMap();
 
-    // Create vector layer
     this.vectorLayer = new VectorLayer({
       source: this.vectorSource,
       style: (feature) => {
@@ -152,11 +149,11 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     const customStyle = feature.get('style');
     if (customStyle) return customStyle;
 
-    if (type === 'Point') {
+    if (type === 'Point' || type === 'MultiPoint') {
       return this.layerStyles.point;
-    } else if (type === 'LineString') {
+    } else if (type === 'LineString' || type === 'MultiLineString') {
       return this.layerStyles.line;
-    } else if (type === 'Polygon') {
+    } else if (type === 'Polygon' || type === 'MultiPolygon') {
       return this.layerStyles.polygon;
     }
 
@@ -166,58 +163,57 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     });
   }
 
-setupInteractions(): void {
-  // Modify
-  this.modify = new Modify({
-    source: this.vectorSource
-  });
-  this.map.addInteraction(this.modify);
-  this.modify.setActive(false);
+  setupInteractions(): void {
+    this.modify = new Modify({
+      source: this.vectorSource
+    });
+    this.map.addInteraction(this.modify);
+    this.modify.setActive(false);
 
-  // Select
-  this.select = new Select({
-    condition: pointerMove,
-    style: (feature) => {
-      const style = this.getStyleForFeature(feature as Feature);
-      const imageStyle = style.getImage();
-      const strokeStyle = style.getStroke();
-      
-      if (imageStyle && imageStyle instanceof Circle) {
-        const circleFill = imageStyle.getFill();
-        return new Style({
-          image: new Circle({
-            radius: imageStyle.getRadius() + 2,
-            fill: circleFill ? circleFill : undefined,
-            stroke: new Stroke({ color: 'yellow', width: 3 })
-          })
-        });
-      } else if (strokeStyle) {
-        const strokeWidth = strokeStyle.getWidth() || 1; // Default to 1 if undefined
-        const fillStyle = style.getFill();
-        return new Style({
-          stroke: new Stroke({
-            color: 'yellow',
-            width: strokeWidth + 2
-          }),
-          fill: fillStyle ? fillStyle : undefined
-        });
+    this.select = new Select({
+      condition: olEventsCondition.click,
+      style: (feature) => {
+        const style = this.getStyleForFeature(feature as Feature);
+        const imageStyle = style.getImage();
+        const strokeStyle = style.getStroke();
+        
+        if (imageStyle && imageStyle instanceof Circle) {
+          const circleFill = imageStyle.getFill();
+          return new Style({
+            image: new Circle({
+              radius: imageStyle.getRadius() + 2,
+              fill: circleFill ? circleFill : undefined,
+              stroke: new Stroke({ color: 'yellow', width: 3 })
+            })
+          });
+        } else if (strokeStyle) {
+          const strokeWidth = strokeStyle.getWidth() || 1;
+          const fillStyle = style.getFill();
+          return new Style({
+            stroke: new Stroke({
+              color: 'yellow',
+              width: strokeWidth + 2
+            }),
+            fill: fillStyle ? fillStyle : undefined
+          });
+        }
+        return style;
       }
-      return style;
-    }
-  });
-  this.map.addInteraction(this.select);
+    });
+    this.map.addInteraction(this.select);
 
-  this.select.on('select', (event) => {
-    if (event.selected.length > 0) {
-      this.selectedFeature = event.selected[0] as Feature;
-      this.attributeData = { ...this.selectedFeature.getProperties() };
-      delete this.attributeData.geometry;
-    } else {
-      this.selectedFeature = null;
-      this.attributeData = {};
-    }
-  });
-}
+    this.select.on('select', (event) => {
+      if (event.selected.length > 0) {
+        this.selectedFeature = event.selected[0] as Feature;
+        this.attributeData = { ...this.selectedFeature.getProperties() };
+        delete this.attributeData.geometry;
+      } else {
+        this.selectedFeature = null;
+        this.attributeData = {};
+      }
+    });
+  }
+
   cleanUpInteractions(): void {
     if (this.draw) this.map.removeInteraction(this.draw);
     if (this.modify) this.map.removeInteraction(this.modify);
@@ -246,7 +242,7 @@ setupInteractions(): void {
 
     this.draw = new Draw({
       source: this.vectorSource,
-      type: geometryType as any, // Type assertion needed
+      type: geometryType as any,
       style: this.getDrawingStyle(type)
     });
 
@@ -312,7 +308,7 @@ setupInteractions(): void {
 
     this.displayAttributeDialog = true;
     this.map.removeInteraction(this.draw);
-    this.setupInteractions(); // Restore other interactions
+    this.setupInteractions();
   }
 
   cancelDrawing(): void {
@@ -404,10 +400,25 @@ setupInteractions(): void {
     reader.onload = (e: any) => {
       try {
         const features = format.readFeatures(e.target.result, {
+          dataProjection: 'EPSG:4326',
           featureProjection: this.map.getView().getProjection()
         });
 
         if (features.length > 0) {
+          features.forEach((feature: Feature) => {
+            const geometry = feature.getGeometry();
+            if (geometry) {
+              const type = geometry.getType();
+              if (type === 'Point' || type === 'MultiPoint') {
+                feature.setStyle(this.layerStyles.point);
+              } else if (type === 'LineString' || type === 'MultiLineString') {
+                feature.setStyle(this.layerStyles.line);
+              } else if (type === 'Polygon' || type === 'MultiPolygon') {
+                feature.setStyle(this.layerStyles.polygon);
+              }
+            }
+          });
+
           this.vectorSource.addFeatures(features);
           const extent = this.vectorSource.getExtent();
           if (extent && extent[0] !== Infinity) {
@@ -438,18 +449,92 @@ setupInteractions(): void {
   }
 
   importShapefile(file: File): void {
+    this.isUploading = true;
+    this.uploadProgress = 0;
+    
+    const progressInterval = setInterval(() => {
+      if (this.uploadProgress < 90) {
+        this.uploadProgress += 10;
+      }
+    }, 300);
+
     this.vectorDataService.uploadShapefile(file).subscribe({
       next: (response: any) => {
-        if (response.features && response.features.length > 0) {
+        clearInterval(progressInterval);
+        this.uploadProgress = 100;
+        
+        // FIXED: Check the correct response structure
+        if (response.success && response.geoJSON && response.geoJSON.features) {
           const format = new GeoJSON();
-          const features = format.readFeatures(response, {
-            featureProjection: this.map.getView().getProjection()
+          
+          // FIXED: Handle different projections - your data appears to be in UTM
+          const possibleProjections = [
+            'EPSG:32643', // UTM Zone 43N (based on your coordinates)
+            'EPSG:4326',  // WGS84
+            'EPSG:3857'   // Web Mercator
+          ];
+
+          let features: Feature[] = [];
+          let projectionFound = false;
+
+          // Try different projections
+          for (const proj of possibleProjections) {
+            try {
+              features = format.readFeatures(response.geoJSON, {
+                dataProjection: proj,
+                featureProjection: this.map.getView().getProjection()
+              });
+              
+              if (features.length > 0) {
+                projectionFound = true;
+                console.log(`Successfully read features with projection: ${proj}`);
+                break;
+              }
+            } catch (error) {
+              console.warn(`Failed with projection ${proj}:`, error);
+              continue;
+            }
+          }
+
+          if (!projectionFound) {
+            // Fallback: try without specifying data projection
+            try {
+              features = format.readFeatures(response.geoJSON, {
+                featureProjection: this.map.getView().getProjection()
+              });
+            } catch (error) {
+              console.error('Failed to read features with any projection:', error);
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Could not parse the uploaded file'
+              });
+              this.isUploading = false;
+              return;
+            }
+          }
+
+          // Apply styles
+          features.forEach((feature: Feature) => {
+            const geometry = feature.getGeometry();
+            if (geometry) {
+              const type = geometry.getType();
+              if (type === 'Point' || type === 'MultiPoint') {
+                feature.setStyle(this.layerStyles.point);
+              } else if (type === 'LineString' || type === 'MultiLineString') {
+                feature.setStyle(this.layerStyles.line);
+              } else if (type === 'Polygon' || type === 'MultiPolygon') {
+                feature.setStyle(this.layerStyles.polygon);
+              }
+            }
           });
 
           this.vectorSource.addFeatures(features);
+          
+          // Zoom to extent
           const extent = this.vectorSource.getExtent();
-          if (extent && extent[0] !== Infinity) {
-            this.map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+          if (extent && extent[0] !== Infinity && extent[1] !== Infinity) {
+            this.map.getView().fit(extent, { padding: [50, 50, 50, 50], maxZoom: 18 });
           }
 
           this.messageService.add({
@@ -457,14 +542,21 @@ setupInteractions(): void {
             summary: 'Success',
             detail: `Imported ${features.length} features from shapefile`
           });
-        }
+
+          // Debug output
+          console.log('Imported features:', features);
+          
+        } 
+        this.isUploading = false;
       },
       error: (error: any) => {
+        clearInterval(progressInterval);
+        this.isUploading = false;
         console.error('Error importing shapefile:', error);
         this.messageService.add({
           severity: 'error',
           summary: 'Error',
-          detail: 'Failed to import shapefile'
+          detail: 'Failed to import shapefile: ' + (error.message || 'Unknown error')
         });
       }
     });
@@ -526,6 +618,21 @@ setupInteractions(): void {
       severity: 'info',
       summary: 'Cleared',
       detail: 'All vector data has been cleared'
+    });
+  }
+
+  // Debug method to check what's loaded
+  debugFeatures(): void {
+    const features = this.vectorSource.getFeatures();
+    console.log('Current features in source:', features.length);
+    console.log('Source extent:', this.vectorSource.getExtent());
+    
+    features.forEach((feature, index) => {
+      const geometry = feature.getGeometry();
+      console.log(`Feature ${index}:`, {
+        type: geometry?.getType(),
+        properties: feature.getProperties()
+      });
     });
   }
 }
