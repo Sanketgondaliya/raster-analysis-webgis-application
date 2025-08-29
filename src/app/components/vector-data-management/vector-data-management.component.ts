@@ -56,8 +56,8 @@ enum GeometryType {
     CardModule,
     ProgressBarModule
   ],
-  templateUrl: './vactor-data-management.component.html',
-  styleUrls: ['./vactor-data-management.component.scss'],
+  templateUrl: './vector-data-management.component.html',
+  styleUrls: ['./vector-data-management.component.scss'],
   providers: [MessageService]
 })
 export class VectorDataManagementComponent implements OnInit, OnDestroy {

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { VectorDataManagementComponent } from './vactor-data-management.component';
+import { VectorDataManagementComponent } from './vector-data-management.component';
 
 describe('VectorDataManagementComponent', () => {
   let component: VectorDataManagementComponent;
