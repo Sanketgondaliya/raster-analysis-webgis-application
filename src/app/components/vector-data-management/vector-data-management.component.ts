@@ -11,7 +11,6 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { CardModule } from 'primeng/card';
 import { ProgressBarModule } from 'primeng/progressbar';
-
 import { DividerModule } from 'primeng/divider';
 
 import Map from 'ol/Map';
@@ -398,35 +397,35 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   }
 
   finishMultiDrawing(type: string): void {
-  if (this.multiFeatures.length === 0) {
-    this.cancelDrawing();
-    return;
+    if (this.multiFeatures.length === 0) {
+      this.cancelDrawing();
+      return;
+    }
+
+    let geometry: Geometry | null = null;
+
+    if (type === 'multiPoint') {
+      const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
+      geometry = new MultiPoint(coords);
+    } else if (type === 'multiLine') {
+      const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
+      geometry = new MultiLineString(coords);
+    } else if (type === 'multiPolygon') {
+      const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
+      geometry = new MultiPolygon(coords);
+    }
+
+    if (geometry) {
+      const feature = new Feature({ geometry });
+      this.vectorSource.addFeature(feature);
+      this.featureDrawn(feature); // ✅ Opens Edit Attributes dialog
+    }
+
+    this.multiFeatures = [];
+    this.isDrawing = false;
+    this.drawingType = '';
+    this.setupInteractions();
   }
-
-  let geometry: Geometry | null = null;
-
-  if (type === 'multiPoint') {
-    const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
-    geometry = new MultiPoint(coords);
-  } else if (type === 'multiLine') {
-    const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
-    geometry = new MultiLineString(coords);
-  } else if (type === 'multiPolygon') {
-    const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
-    geometry = new MultiPolygon(coords);
-  }
-
-  if (geometry) {
-    const feature = new Feature({ geometry });
-    this.vectorSource.addFeature(feature);
-    this.featureDrawn(feature); // ✅ Opens Edit Attributes dialog
-  }
-
-  this.multiFeatures = [];
-  this.isDrawing = false;
-  this.drawingType = '';
-  this.setupInteractions();
-}
 
   // Get all property keys from a feature (excluding geometry and style)
   getFeaturePropertyKeys(feature: Feature): string[] {
@@ -452,18 +451,23 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
 
   addNewAttribute(): void {
     if (this.newAttributeName && this.newAttributeValue) {
-      // Add to the attributeData object
+      // Add to attributeData (for dialog binding)
       this.attributeData[this.newAttributeName] = this.newAttributeValue;
+
+      // Also set directly on the feature so it's reflected immediately
+      if (this.selectedFeature) {
+        this.selectedFeature.set(this.newAttributeName, this.newAttributeValue);
+      }
 
       // Clear the input fields
       this.newAttributeName = '';
       this.newAttributeValue = '';
 
-      // Create a new reference to trigger change detection
+      // Force change detection
       this.attributeData = { ...this.attributeData };
     }
-
   }
+
 
   // Save all attributes (including new ones)
   saveAttributes(): void {
