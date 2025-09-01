@@ -11,6 +11,9 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { CardModule } from 'primeng/card';
 import { ProgressBarModule } from 'primeng/progressbar';
+
+import { DividerModule } from 'primeng/divider';
+
 import Map from 'ol/Map';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
@@ -26,9 +29,13 @@ import LineString from 'ol/geom/LineString';
 import Polygon from 'ol/geom/Polygon';
 import { GeoJSON, KML, GPX } from 'ol/format';
 import { getArea, getLength } from 'ol/sphere';
-import { transform } from 'ol/proj';
 import { MapService } from '../../services/map.service';
 import { VectorDataService } from '../../services/vector-data.service';
+
+import MultiPoint from 'ol/geom/MultiPoint';
+import MultiLineString from 'ol/geom/MultiLineString';
+import MultiPolygon from 'ol/geom/MultiPolygon';
+
 
 enum GeometryType {
   POINT = 'Point',
@@ -40,7 +47,6 @@ enum GeometryType {
   CIRCLE = 'Circle',
   RECTANGLE = 'Rectangle'
 }
-
 
 @Component({
   selector: 'app-vector-data-management',
@@ -56,7 +62,8 @@ enum GeometryType {
     ToastModule,
     TabsModule,
     CardModule,
-    ProgressBarModule
+    ProgressBarModule,
+    DividerModule
   ],
   templateUrl: './vector-data-management.component.html',
   styleUrls: ['./vector-data-management.component.scss'],
@@ -83,6 +90,10 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
 
   vectorLayers: any[] = [];
   selectedLayer: any = null;
+  multiFeatures: Feature[] = [];
+
+
+  defaultValue: any = '';
   layerStyles: any = {
     point: new Style({
       image: new Circle({
@@ -110,11 +121,22 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
 
   acceptedFileTypes = '.shp,.kml,.gpx,.geojson,.json,.zip';
 
-  attributeFields: any[] = [
+  // Dynamic attribute management
+  attributeTemplates: any[] = [
     { name: 'name', type: 'string', label: 'Name' },
     { name: 'description', type: 'string', label: 'Description' },
     { name: 'type', type: 'string', label: 'Type' }
   ];
+
+  dataTypes: any[] = [
+    { label: 'Text', value: 'string' },
+    { label: 'Number', value: 'number' },
+    { label: 'Boolean', value: 'boolean' },
+    { label: 'Date', value: 'date' }
+  ];
+
+  newAttributeName: string = '';
+  newAttributeValue: string = '';
 
   constructor(
     private mapService: MapService,
@@ -125,6 +147,9 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.initializeMap();
     this.setupInteractions();
+
+    // Load saved attribute templates if any
+    this.loadAttributeTemplates();
   }
 
   ngOnDestroy(): void {
@@ -209,6 +234,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
         this.selectedFeature = event.selected[0] as Feature;
         this.attributeData = { ...this.selectedFeature.getProperties() };
         delete this.attributeData.geometry;
+        delete this.attributeData.style;
       } else {
         this.selectedFeature = null;
         this.attributeData = {};
@@ -255,15 +281,19 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     this.map.addInteraction(this.draw);
 
     this.draw.on('drawend', (event: DrawEvent) => {
-      this.featureDrawn(event.feature);
-
-      // If it's a multi-geometry type, keep drawing
       if (['multiPoint', 'multiLine', 'multiPolygon'].includes(type)) {
+        // Collect the drawn feature but don't stop immediately
+        this.multiFeatures.push(event.feature);
+
+        // Allow user to keep drawing until they click "Stop"
         setTimeout(() => this.startDrawing(type), 50);
       } else {
+        // Single geometry → finish normally
+        this.featureDrawn(event.feature);
         this.isDrawing = false;
       }
     });
+
   }
 
   getDrawingStyle(type: string): Style {
@@ -303,10 +333,24 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   }
 
   featureDrawn(feature: Feature): void {
-    feature.set('name', `New ${this.drawingType}`);
-    feature.set('description', '');
-    feature.set('type', this.drawingType);
+    // Set default values from attribute templates
+    this.attributeTemplates.forEach(template => {
+      if (!feature.get(template.name)) {
+        let defaultValue: string | number | boolean = '';
 
+        switch (template.type) {
+          case 'number': defaultValue = 0; break;
+          case 'boolean': defaultValue = false; break;
+          case 'date': defaultValue = new Date().toISOString(); break;
+          default: defaultValue = ''; break;
+        }
+
+        feature.set(template.name, defaultValue);
+      }
+    });
+
+
+    // Calculate geometry properties
     const geometry = feature.getGeometry();
     if (geometry instanceof Polygon) {
       const area = getArea(geometry);
@@ -321,6 +365,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     this.selectedFeature = feature;
     this.attributeData = { ...feature.getProperties() };
     delete this.attributeData.geometry;
+    delete this.attributeData.style;
 
     this.displayAttributeDialog = true;
     this.map.removeInteraction(this.draw);
@@ -339,21 +384,102 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
 
   toggleDrawing(type: string): void {
     if (this.isDrawing && this.drawingType === type) {
-      // Stop drawing if already drawing this type
-      this.cancelDrawing();
+      // User clicked stop → finalize multi features
+      if (['multiPoint', 'multiLine', 'multiPolygon'].includes(type)) {
+        this.finishMultiDrawing(type);
+      } else {
+        this.cancelDrawing();
+      }
     } else {
-      // Start drawing this type
+      // Start new drawing
+      this.multiFeatures = [];
       this.startDrawing(type);
     }
   }
 
+  finishMultiDrawing(type: string): void {
+  if (this.multiFeatures.length === 0) {
+    this.cancelDrawing();
+    return;
+  }
+
+  let geometry: Geometry | null = null;
+
+  if (type === 'multiPoint') {
+    const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
+    geometry = new MultiPoint(coords);
+  } else if (type === 'multiLine') {
+    const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
+    geometry = new MultiLineString(coords);
+  } else if (type === 'multiPolygon') {
+    const coords = this.multiFeatures.map(f => (f.getGeometry() as any).getCoordinates());
+    geometry = new MultiPolygon(coords);
+  }
+
+  if (geometry) {
+    const feature = new Feature({ geometry });
+    this.vectorSource.addFeature(feature);
+    this.featureDrawn(feature); // ✅ Opens Edit Attributes dialog
+  }
+
+  this.multiFeatures = [];
+  this.isDrawing = false;
+  this.drawingType = '';
+  this.setupInteractions();
+}
+
+  // Get all property keys from a feature (excluding geometry and style)
+  getFeaturePropertyKeys(feature: Feature): string[] {
+    const properties = feature.getProperties();
+    return Object.keys(properties).filter(key =>
+      key !== 'geometry' && key !== 'style' && !key.startsWith('_')
+    );
+  }
+
+  // Open attribute dialog with current feature properties
+  openAttributeDialog(): void {
+    if (this.selectedFeature) {
+      // Get all properties except geometry and style
+      this.attributeData = { ...this.selectedFeature.getProperties() };
+      delete this.attributeData.geometry;
+      delete this.attributeData.style;
+
+      this.displayAttributeDialog = true;
+    }
+  }
+
+  // Add a new attribute to the feature
+
+  addNewAttribute(): void {
+    if (this.newAttributeName && this.newAttributeValue) {
+      // Add to the attributeData object
+      this.attributeData[this.newAttributeName] = this.newAttributeValue;
+
+      // Clear the input fields
+      this.newAttributeName = '';
+      this.newAttributeValue = '';
+
+      // Create a new reference to trigger change detection
+      this.attributeData = { ...this.attributeData };
+    }
+
+  }
+
+  // Save all attributes (including new ones)
   saveAttributes(): void {
     if (this.selectedFeature) {
-      for (const key in this.attributeData) {
-        if (this.attributeData.hasOwnProperty(key)) {
-          this.selectedFeature.set(key, this.attributeData[key]);
+      // Remove geometry and style from attribute data before setting
+      const attributesToSave = { ...this.attributeData };
+      delete attributesToSave.geometry;
+      delete attributesToSave.style;
+
+      // Set all properties
+      for (const key in attributesToSave) {
+        if (attributesToSave.hasOwnProperty(key)) {
+          this.selectedFeature.set(key, attributesToSave[key]);
         }
       }
+
       this.selectedFeature.changed();
 
       this.messageService.add({
@@ -363,6 +489,33 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
       });
     }
     this.displayAttributeDialog = false;
+  }
+
+  // Attribute template management
+  addAttributeTemplate(): void {
+    this.attributeTemplates.push({ name: '', type: 'string', label: '' });
+  }
+
+  removeAttributeTemplate(index: number): void {
+    this.attributeTemplates.splice(index, 1);
+  }
+
+  saveAttributeTemplates(): void {
+    // Save to localStorage or backend
+    localStorage.setItem('attributeTemplates', JSON.stringify(this.attributeTemplates));
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Attribute templates saved'
+    });
+  }
+
+  loadAttributeTemplates(): void {
+    const savedTemplates = localStorage.getItem('attributeTemplates');
+    if (savedTemplates) {
+      this.attributeTemplates = JSON.parse(savedTemplates);
+    }
   }
 
   toggleEditMode(): void {
@@ -445,6 +598,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
                 feature.setStyle(this.layerStyles.polygon);
               }
             }
+            // Preserve all original properties from the imported file
           });
 
           this.vectorSource.addFeatures(features);
@@ -491,11 +645,9 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
         clearInterval(progressInterval);
         this.uploadProgress = 100;
 
-        // FIXED: Check the correct response structure
         if (response.success && response.geoJSON && response.geoJSON.features) {
           const format = new GeoJSON();
 
-          // FIXED: Handle different projections - your data appears to be in UTM
           const possibleProjections = [
             'EPSG:32643', // UTM Zone 43N (based on your coordinates)
             'EPSG:4326',  // WGS84
@@ -662,7 +814,6 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     });
   }
 
-
   // Debug method to check what's loaded
   debugFeatures(): void {
     const features = this.vectorSource.getFeatures();
@@ -678,4 +829,3 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     });
   }
 }
-

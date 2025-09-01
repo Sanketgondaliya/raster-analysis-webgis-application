@@ -1,19 +1,23 @@
+<!-- vector-data-management.component.html -->
 <div class="card">
   <p-tabs p-tabs value="0">
     <p-tablist>
       <p-tab value="0">Create</p-tab>
       <p-tab value="1">Upload</p-tab>
       <p-tab value="2">Manage</p-tab>
+      <p-tab value="3">Attributes</p-tab>
     </p-tablist>
 
     <p-tabpanels>
       <!-- Create Tab -->
       <p-tabpanel value="0">
         <div class="grid p-fluid">
+
           <div class="col-12 md:col-4">
             <button pButton label="Point" icon="pi pi-circle" class="w-full mb-2" (click)="startDrawing('point')"
               [disabled]="isDrawing"></button>
           </div>
+
           <div class="col-12 md:col-4">
             <button pButton label="Line" icon="pi pi-minus" class="w-full mb-2" (click)="startDrawing('line')"
               [disabled]="isDrawing"></button>
@@ -47,7 +51,6 @@
             </button>
           </div>
 
-
           <div class="col-12 md:col-4">
             <button pButton label="Circle" icon="pi pi-circle-on" class="w-full mb-2" (click)="startDrawing('circle')"
               [disabled]="isDrawing"></button>
@@ -56,8 +59,6 @@
             <button pButton label="Rectangle" icon="pi pi-square" class="w-full mb-2"
               (click)="startDrawing('rectangle')" [disabled]="isDrawing"></button>
           </div>
-
-
           <div class="col-12" *ngIf="isDrawing">
             <p-card header="Drawing Mode Active">
               <p>Drawing a {{drawingType}}. Click on the map to create vertices.</p>
@@ -94,7 +95,6 @@
         </div>
       </p-tabpanel>
 
-
       <!-- Manage Tab -->
       <p-tabpanel value="2">
         <div class="grid p-fluid">
@@ -120,7 +120,6 @@
               (click)="exportData('gpx')"></button>
           </div>
 
-
           <div class="col-12">
             <button pButton label="Clear All Data" icon="pi pi-times" class="p-button-warning w-full"
               (click)="clearAllData()"></button>
@@ -129,11 +128,50 @@
           <div class="col-12" *ngIf="selectedFeature">
             <p-card header="Selected Feature">
               <p>Type: {{ selectedFeature.getGeometry()?.getType() }}</p>
-              <div *ngFor="let field of attributeFields">
-                <strong>{{ field.label }}:</strong> {{ selectedFeature.get(field.name) || 'Not set' }}
+              <div *ngFor="let key of getFeaturePropertyKeys(selectedFeature)">
+                <strong>{{ key }}:</strong> {{ selectedFeature.get(key) }}
               </div>
               <button pButton label="Edit Attributes" icon="pi pi-cog" class="w-full mt-2"
-                (click)="displayAttributeDialog = true"></button>
+                (click)="openAttributeDialog()"></button>
+            </p-card>
+          </div>
+        </div>
+      </p-tabpanel>
+
+      <!-- Attributes Tab - NEW: For managing attribute templates -->
+      <p-tabpanel value="3">
+        <div class="grid p-fluid">
+          <div class="col-12">
+            <p-card header="Attribute Templates">
+              <p>Define attribute templates that will be available for new features.</p>
+
+              <div class="mb-4" *ngFor="let field of attributeTemplates; let i = index">
+                <div class="grid">
+                  <div class="col-12 md:col-4">
+                    <label>Field Name</label>
+                    <input pInputText [(ngModel)]="field.name" placeholder="e.g., name, type, elevation"
+                      class="w-full" />
+                  </div>
+                  <div class="col-12 md:col-4">
+                    <label>Display Label</label>
+                    <input pInputText [(ngModel)]="field.label" placeholder="e.g., Name, Type, Elevation"
+                      class="w-full" />
+                  </div>
+                  <div class="col-12 md:col-3">
+                    <label>Data Type</label>
+                    <p-select [options]="dataTypes" [(ngModel)]="field.type" optionLabel="label" optionValue="value"
+                      class="w-full"></p-select>
+                  </div>
+                  <div class="col-12 md:col-1 flex align-items-center">
+                    <button pButton icon="pi pi-trash" class="p-button-danger"
+                      (click)="removeAttributeTemplate(i)"></button>
+                  </div>
+                </div>
+              </div>
+
+              <button pButton label="Add Field" icon="pi pi-plus" class="mr-2"
+                (click)="addAttributeTemplate()"></button>
+              <button pButton label="Save Templates" icon="pi pi-save" (click)="saveAttributeTemplates()"></button>
             </p-card>
           </div>
         </div>
@@ -141,12 +179,31 @@
     </p-tabpanels>
   </p-tabs>
 
-  <!-- Attribute Dialog -->
+  <!-- Attribute Dialog - UPDATED: Now dynamic -->
   <p-dialog header="Edit Attributes" [(visible)]="displayAttributeDialog" [modal]="true" [style]="{width: '50vw'}">
     <div class="grid p-fluid" *ngIf="selectedFeature">
-      <div class="col-12" *ngFor="let field of attributeFields">
-        <label [for]="field.name">{{ field.label }}</label>
-        <input pInputText [id]="field.name" [(ngModel)]="attributeData[field.name]" class="w-full" />
+      <!-- Show all existing properties except geometry and style -->
+      <div class="col-12" *ngFor="let key of getFeaturePropertyKeys(selectedFeature)">
+        <label [for]="key">{{ key }}</label>
+        <input pInputText [id]="key" [(ngModel)]="attributeData[key]" class="w-full" />
+      </div>
+
+      <!-- Add new attributes -->
+      <div class="col-12 mt-3">
+        <p-divider></p-divider>
+        <h4>Add New Attributes</h4>
+
+        <div class="grid">
+          <div class="col-12 md:col-6">
+            <input pInputText [(ngModel)]="newAttributeName" placeholder="Attribute name" class="w-full mb-2" />
+          </div>
+          <div class="col-12 md:col-6">
+            <input pInputText [(ngModel)]="newAttributeValue" placeholder="Attribute value" class="w-full mb-2" />
+          </div>
+          <div class="col-12">
+            <button pButton label="Add Attribute" icon="pi pi-plus" (click)="addNewAttribute()"></button>
+          </div>
+        </div>
       </div>
     </div>
     <ng-template pTemplate="footer">
