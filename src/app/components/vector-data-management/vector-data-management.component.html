@@ -22,6 +22,41 @@
             <button pButton label="Polygon" icon="pi pi-stop" class="w-full mb-2" (click)="startDrawing('polygon')"
               [disabled]="isDrawing"></button>
           </div>
+          <!-- MultiPoint -->
+          <div class="col-12 md:col-4">
+            <button pButton [label]="isDrawing && drawingType === 'multiPoint' ? 'Stop MultiPoint' : 'Draw MultiPoint'"
+              [icon]="isDrawing && drawingType === 'multiPoint' ? 'pi pi-stop' : 'pi pi-circle'" class="w-full mb-2"
+              [disabled]="isDrawing && drawingType !== 'multiPoint'" (click)="toggleDrawing('multiPoint')">
+            </button>
+          </div>
+
+          <!-- MultiLine -->
+          <div class="col-12 md:col-4">
+            <button pButton [label]="isDrawing && drawingType === 'multiLine' ? 'Stop MultiLine' : 'Draw MultiLine'"
+              [icon]="isDrawing && drawingType === 'multiLine' ? 'pi pi-stop' : 'pi pi-minus'" class="w-full mb-2"
+              [disabled]="isDrawing && drawingType !== 'multiLine'" (click)="toggleDrawing('multiLine')">
+            </button>
+          </div>
+
+          <!-- MultiPolygon -->
+          <div class="col-12 md:col-4">
+            <button pButton
+              [label]="isDrawing && drawingType === 'multiPolygon' ? 'Stop MultiPolygon' : 'Draw MultiPolygon'"
+              [icon]="isDrawing && drawingType === 'multiPolygon' ? 'pi pi-stop' : 'pi pi-stop'" class="w-full mb-2"
+              [disabled]="isDrawing && drawingType !== 'multiPolygon'" (click)="toggleDrawing('multiPolygon')">
+            </button>
+          </div>
+
+
+          <div class="col-12 md:col-4">
+            <button pButton label="Circle" icon="pi pi-circle-on" class="w-full mb-2" (click)="startDrawing('circle')"
+              [disabled]="isDrawing"></button>
+          </div>
+          <div class="col-12 md:col-4">
+            <button pButton label="Rectangle" icon="pi pi-square" class="w-full mb-2"
+              (click)="startDrawing('rectangle')" [disabled]="isDrawing"></button>
+          </div>
+
 
           <div class="col-12" *ngIf="isDrawing">
             <p-card header="Drawing Mode Active">
@@ -49,7 +84,7 @@
               </ng-template>
             </p-fileUpload>
             <small>Supported formats: SHP (zipped), KML, GPX, GeoJSON</small>
-            
+
             <!-- Progress bar for shapefile upload -->
             <div class="mt-3" *ngIf="isUploading">
               <p>Uploading and processing shapefile...</p>
@@ -58,7 +93,7 @@
           </div>
         </div>
       </p-tabpanel>
-      
+
 
       <!-- Manage Tab -->
       <p-tabpanel value="2">
@@ -84,6 +119,7 @@
             <button pButton label="Export GPX" icon="pi pi-download" class="p-button-help w-full mb-2"
               (click)="exportData('gpx')"></button>
           </div>
+
 
           <div class="col-12">
             <button pButton label="Clear All Data" icon="pi pi-times" class="p-button-warning w-full"

@@ -17,7 +17,8 @@ import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import { Geometry } from 'ol/geom';
 import { Fill, Stroke, Style, Circle } from 'ol/style';
-import Draw, { DrawEvent } from 'ol/interaction/Draw';
+import Draw, { DrawEvent, createBox } from 'ol/interaction/Draw';
+
 import Modify from 'ol/interaction/Modify';
 import Select from 'ol/interaction/Select';
 import * as olEventsCondition from 'ol/events/condition';
@@ -26,7 +27,6 @@ import Polygon from 'ol/geom/Polygon';
 import { GeoJSON, KML, GPX } from 'ol/format';
 import { getArea, getLength } from 'ol/sphere';
 import { transform } from 'ol/proj';
-
 import { MapService } from '../../services/map.service';
 import { VectorDataService } from '../../services/vector-data.service';
 
@@ -37,8 +37,10 @@ enum GeometryType {
   MULTI_POINT = 'MultiPoint',
   MULTI_LINE_STRING = 'MultiLineString',
   MULTI_POLYGON = 'MultiPolygon',
-  CIRCLE = 'Circle'
+  CIRCLE = 'Circle',
+  RECTANGLE = 'Rectangle'
 }
+
 
 @Component({
   selector: 'app-vector-data-management',
@@ -118,7 +120,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     private mapService: MapService,
     private vectorDataService: VectorDataService,
     private messageService: MessageService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.initializeMap();
@@ -176,7 +178,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
         const style = this.getStyleForFeature(feature as Feature);
         const imageStyle = style.getImage();
         const strokeStyle = style.getStroke();
-        
+
         if (imageStyle && imageStyle instanceof Circle) {
           const circleFill = imageStyle.getFill();
           return new Style({
@@ -225,38 +227,49 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     this.drawingType = type;
     this.isDrawing = true;
 
-    let geometryType: GeometryType;
+    let geometryType: GeometryType | 'Circle' = GeometryType.POINT;
+
     switch (type) {
-      case 'point':
-        geometryType = GeometryType.POINT;
-        break;
-      case 'line':
-        geometryType = GeometryType.LINE_STRING;
-        break;
-      case 'polygon':
-        geometryType = GeometryType.POLYGON;
-        break;
-      default:
-        return;
+      case 'point': geometryType = GeometryType.POINT; break;
+      case 'multiPoint': geometryType = GeometryType.MULTI_POINT; break;
+      case 'line': geometryType = GeometryType.LINE_STRING; break;
+      case 'multiLine': geometryType = GeometryType.MULTI_LINE_STRING; break;
+      case 'polygon': geometryType = GeometryType.POLYGON; break;
+      case 'multiPolygon': geometryType = GeometryType.MULTI_POLYGON; break;
+      case 'circle': geometryType = 'Circle'; break;
+      case 'rectangle': geometryType = 'Circle'; break;
+      default: return;
     }
 
-    this.draw = new Draw({
+    const drawOptions: any = {
       source: this.vectorSource,
-      type: geometryType as any,
+      type: geometryType,
       style: this.getDrawingStyle(type)
-    });
+    };
 
+    if (type === 'rectangle') {
+      drawOptions.geometryFunction = createBox();
+    }
+
+    this.draw = new Draw(drawOptions);
     this.map.addInteraction(this.draw);
 
     this.draw.on('drawend', (event: DrawEvent) => {
-      this.isDrawing = false;
       this.featureDrawn(event.feature);
+
+      // If it's a multi-geometry type, keep drawing
+      if (['multiPoint', 'multiLine', 'multiPolygon'].includes(type)) {
+        setTimeout(() => this.startDrawing(type), 50);
+      } else {
+        this.isDrawing = false;
+      }
     });
   }
 
   getDrawingStyle(type: string): Style {
     switch (type) {
       case 'point':
+      case 'multiPoint':
         return new Style({
           image: new Circle({
             radius: 7,
@@ -265,6 +278,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
           })
         });
       case 'line':
+      case 'multiLine':
         return new Style({
           stroke: new Stroke({
             color: 'rgba(0, 0, 255, 0.5)',
@@ -272,14 +286,16 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
           })
         });
       case 'polygon':
+      case 'multiPolygon':
         return new Style({
-          fill: new Fill({
-            color: 'rgba(0, 255, 0, 0.2)'
-          }),
-          stroke: new Stroke({
-            color: 'green',
-            width: 2
-          })
+          fill: new Fill({ color: 'rgba(0, 255, 0, 0.2)' }),
+          stroke: new Stroke({ color: 'green', width: 2 })
+        });
+      case 'circle':
+      case 'rectangle':
+        return new Style({
+          fill: new Fill({ color: 'rgba(255, 165, 0, 0.2)' }),
+          stroke: new Stroke({ color: 'orange', width: 2 })
         });
       default:
         return new Style();
@@ -312,11 +328,23 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   }
 
   cancelDrawing(): void {
-    this.isDrawing = false;
     if (this.draw) {
       this.map.removeInteraction(this.draw);
+      this.draw = undefined as any;
     }
+    this.isDrawing = false;
+    this.drawingType = '';
     this.setupInteractions();
+  }
+
+  toggleDrawing(type: string): void {
+    if (this.isDrawing && this.drawingType === type) {
+      // Stop drawing if already drawing this type
+      this.cancelDrawing();
+    } else {
+      // Start drawing this type
+      this.startDrawing(type);
+    }
   }
 
   saveAttributes(): void {
@@ -451,7 +479,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   importShapefile(file: File): void {
     this.isUploading = true;
     this.uploadProgress = 0;
-    
+
     const progressInterval = setInterval(() => {
       if (this.uploadProgress < 90) {
         this.uploadProgress += 10;
@@ -462,11 +490,11 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         clearInterval(progressInterval);
         this.uploadProgress = 100;
-        
+
         // FIXED: Check the correct response structure
         if (response.success && response.geoJSON && response.geoJSON.features) {
           const format = new GeoJSON();
-          
+
           // FIXED: Handle different projections - your data appears to be in UTM
           const possibleProjections = [
             'EPSG:32643', // UTM Zone 43N (based on your coordinates)
@@ -484,7 +512,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
                 dataProjection: proj,
                 featureProjection: this.map.getView().getProjection()
               });
-              
+
               if (features.length > 0) {
                 projectionFound = true;
                 console.log(`Successfully read features with projection: ${proj}`);
@@ -530,7 +558,7 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
           });
 
           this.vectorSource.addFeatures(features);
-          
+
           // Zoom to extent
           const extent = this.vectorSource.getExtent();
           if (extent && extent[0] !== Infinity && extent[1] !== Infinity) {
@@ -545,8 +573,8 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
 
           // Debug output
           console.log('Imported features:', features);
-          
-        } 
+
+        }
         this.isUploading = false;
       },
       error: (error: any) => {
@@ -573,20 +601,33 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Clone features and transform coordinates to WGS84 for export
+    const featuresToExport = features.map(feature => {
+      const clonedFeature = feature.clone();
+      const geometry = clonedFeature.getGeometry();
+
+      if (geometry) {
+        // Transform geometry to WGS84
+        geometry.transform('EPSG:3857', 'EPSG:4326');
+      }
+
+      return clonedFeature;
+    });
+
     let writer, output, mimeType, extension;
     if (format === 'geojson') {
       writer = new GeoJSON();
-      output = writer.writeFeatures(features);
+      output = writer.writeFeatures(featuresToExport);
       mimeType = 'application/json';
       extension = 'geojson';
     } else if (format === 'kml') {
       writer = new KML();
-      output = writer.writeFeatures(features);
+      output = writer.writeFeatures(featuresToExport);
       mimeType = 'application/vnd.google-earth.kml+xml';
       extension = 'kml';
     } else if (format === 'gpx') {
       writer = new GPX();
-      output = writer.writeFeatures(features);
+      output = writer.writeFeatures(featuresToExport);
       mimeType = 'application/gpx+xml';
       extension = 'gpx';
     } else {
@@ -621,12 +662,13 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     });
   }
 
+
   // Debug method to check what's loaded
   debugFeatures(): void {
     const features = this.vectorSource.getFeatures();
     console.log('Current features in source:', features.length);
     console.log('Source extent:', this.vectorSource.getExtent());
-    
+
     features.forEach((feature, index) => {
       const geometry = feature.getGeometry();
       console.log(`Feature ${index}:`, {
@@ -636,3 +678,4 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
     });
   }
 }
+
