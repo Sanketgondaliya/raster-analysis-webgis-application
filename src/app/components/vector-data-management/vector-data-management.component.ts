@@ -91,7 +91,6 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
   selectedLayer: any = null;
   multiFeatures: Feature[] = [];
 
-
   defaultValue: any = '';
   layerStyles: any = {
     point: new Style({
@@ -467,7 +466,6 @@ export class VectorDataManagementComponent implements OnInit, OnDestroy {
       this.attributeData = { ...this.attributeData };
     }
   }
-
 
   // Save all attributes (including new ones)
   saveAttributes(): void {
